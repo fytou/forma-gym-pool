@@ -1,0 +1,20 @@
+{
+  "name": "forma-gym-pool",
+  "version": "1.0.0",
+  "description": "Sistem Manajemen Membership, Check-in, dan Akses Fasilitas FORMA Gym & Pool",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev:server": "node --watch server/index.js",
+    "dev:client": "cd client && npm run dev",
+    "build": "cd client && npm run build"
+  },
+  "keywords": [
+    "forma",
+    "gym",
+    "pool",
+    "membership",
+    "qr-checkin"
+  ],
+  "author": "FORMA System",
+  "license": "ISC"
+}

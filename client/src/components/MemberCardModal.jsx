@@ -333,6 +333,8 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
   const cardRef = useRef(null);
   const [downloadingImage, setDownloadingImage] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
+  const [sendingWa, setSendingWa] = useState(false);
+  const [waToast, setWaToast] = useState(false);
 
   if (!member) return null;
 
@@ -350,8 +352,132 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
     window.print();
   };
 
-  // Kirim Kartu & Pesan Hangat Resmi via WhatsApp Langsung
-  const handleSendWhatsApp = () => {
+  // Helper: Generasi Blob Kartu PNG Resolusi Tinggi (100% Kebal Taint)
+  const generateCardBlob = async () => {
+    // 1. Pastikan QR image tersedia
+    let qrSource = qrImage;
+    if (!qrSource && member.qr_code) {
+      try {
+        const res = await getQrCode(member.qr_code);
+        if (res.success) qrSource = res.qr;
+      } catch (e) {}
+    }
+
+    // Preload QR image
+    const qrEl = await new Promise((resolve) => {
+      if (!qrSource) return resolve(null);
+      const img = new window.Image();
+      let done = false;
+      const finish = (result) => {
+        if (!done) {
+          done = true;
+          resolve(result);
+        }
+      };
+      img.onload = () => finish(img);
+      img.onerror = () => finish(null);
+      setTimeout(() => finish(null), 1200);
+      img.src = qrSource;
+      if (img.complete && img.naturalWidth > 0) finish(img);
+    });
+
+    // 2. Preload foto member dengan CORS
+    let photoEl = null;
+    if (member.foto) {
+      photoEl = await new Promise((resolve) => {
+        const img = new window.Image();
+        img.crossOrigin = 'anonymous';
+        let done = false;
+        const finish = (result) => {
+          if (!done) {
+            done = true;
+            resolve(result);
+          }
+        };
+        img.onload = () => finish(img);
+        img.onerror = () => finish(null);
+        setTimeout(() => finish(null), 1500);
+
+        let src = member.foto;
+        if (src.startsWith('http') || src.startsWith('/')) {
+          const sep = src.includes('?') ? '&' : '?';
+          src = `${src}${sep}cb=${Date.now()}`;
+        }
+        img.src = src;
+        if (img.complete && img.naturalWidth > 0) finish(img);
+      });
+    }
+
+    // 3. Render ke Blob (Double-buffered: canvas1 dengan foto, canvas2 dengan avatar vector)
+    let blob = null;
+
+    if (photoEl) {
+      try {
+        const canvas1 = document.createElement('canvas');
+        renderCardToCanvas(canvas1, member, paketNama, paketFasilitas, validUntil, photoEl, qrEl);
+        blob = await new Promise((resolve, reject) => {
+          try {
+            canvas1.toBlob((b) => {
+              if (b) resolve(b);
+              else reject(new Error('Tainted canvas'));
+            }, 'image/png');
+          } catch (err) {
+            reject(err);
+          }
+        });
+      } catch (taintErr) {
+        console.warn('Canvas with photo was tainted, falling back to clean vector card:', taintErr);
+        blob = null;
+      }
+    }
+
+    if (!blob) {
+      const canvas2 = document.createElement('canvas');
+      renderCardToCanvas(canvas2, member, paketNama, paketFasilitas, validUntil, null, qrEl);
+      blob = await new Promise((resolve) => {
+        canvas2.toBlob((b) => resolve(b), 'image/png');
+      });
+    }
+
+    return blob;
+  };
+
+  // Unduh Kartu Fisik PNG
+  const handleDownloadCardImage = async () => {
+    if (downloadingImage) return;
+    setDownloadingImage(true);
+
+    try {
+      const blob = await generateCardBlob();
+      if (!blob) throw new Error('Gagal merender gambar kartu.');
+
+      const blobUrl = URL.createObjectURL(blob);
+      const fileName = `Kartu-Member-${member.id_member}-${(member.nama || 'member').replace(/\s+/g, '_')}.png`;
+
+      const link = document.createElement('a');
+      link.style.display = 'none';
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      }, 2000);
+
+      setDownloadSuccess(true);
+      setTimeout(() => setDownloadSuccess(false), 2500);
+    } catch (err) {
+      console.error('Error generating card image:', err);
+      alert('Gagal mendownload gambar: ' + (err.message || 'Terjadi kesalahan sistem'));
+    } finally {
+      setDownloadingImage(false);
+    }
+  };
+
+  // Kirim Kartu ke WhatsApp: Otomatis Unduh Gambar + Copy ke Clipboard + Buka WhatsApp
+  const handleSendWhatsApp = async () => {
     if (!member.no_hp) {
       alert('Nomor telepon / WhatsApp member belum terdaftar.');
       return;
@@ -379,159 +505,53 @@ Kartu fisik & QR Code Anda telah aktif dan dapat langsung digunakan untuk scan m
 _Kuat, Fokus, Segar Setiap Hari._
 Terima kasih telah menjadi bagian dari keluarga besar FORMA! 🙏`;
 
-    const waUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
-    window.open(waUrl, '_blank');
-  };
-
-  const handleDownloadQr = () => {
-    if (!qrImage) return;
-    const fileName = `QR-${member.id_member}-${(member.nama || 'member').replace(/\s+/g, '_')}.png`;
+    setSendingWa(true);
     try {
-      const blob = dataURLtoBlob(qrImage);
+      // 1. Generate PNG Card Blob
+      const blob = await generateCardBlob();
+
       if (blob) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
+        // 2. Otomatis unduh kartu ke folder Downloads
+        const blobUrl = URL.createObjectURL(blob);
+        const fileName = `Kartu-Member-${member.id_member}-${(member.nama || 'member').replace(/\s+/g, '_')}.png`;
+
+        const link = document.createElement('a');
+        link.style.display = 'none';
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+
         setTimeout(() => {
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }, 1500);
-        return;
-      }
-    } catch (e) {}
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+        }, 2000);
 
-    // Fallback
-    const a = document.createElement('a');
-    a.href = qrImage;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
-
-  // Download entire card as high-res PNG image (fast, double-buffered, 100% taint immunity)
-  const handleDownloadCardImage = async () => {
-    if (downloadingImage) return;
-    setDownloadingImage(true);
-
-    try {
-      // 1. Ensure QR image
-      let qrSource = qrImage;
-      if (!qrSource && member.qr_code) {
-        try {
-          const res = await getQrCode(member.qr_code);
-          if (res.success) qrSource = res.qr;
-        } catch (e) {}
-      }
-
-      // Preload QR image
-      const qrEl = await new Promise((resolve) => {
-        if (!qrSource) return resolve(null);
-        const img = new window.Image();
-        let done = false;
-        const finish = (result) => {
-          if (!done) {
-            done = true;
-            resolve(result);
+        // 3. Salin gambar kartu ke Clipboard agar di WhatsApp Web staf tinggal Ctrl+V (Paste)
+        if (navigator.clipboard && window.ClipboardItem) {
+          try {
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ]);
+          } catch (clipErr) {
+            console.warn('Clipboard write image not allowed or failed:', clipErr);
           }
-        };
-        img.onload = () => finish(img);
-        img.onerror = () => finish(null);
-        setTimeout(() => finish(null), 1200);
-        img.src = qrSource;
-        if (img.complete && img.naturalWidth > 0) finish(img);
-      });
-
-      // 2. Preload photo safely with CORS
-      let photoEl = null;
-      if (member.foto) {
-        photoEl = await new Promise((resolve) => {
-          const img = new window.Image();
-          img.crossOrigin = 'anonymous';
-          let done = false;
-          const finish = (result) => {
-            if (!done) {
-              done = true;
-              resolve(result);
-            }
-          };
-          img.onload = () => finish(img);
-          img.onerror = () => finish(null);
-          setTimeout(() => finish(null), 1500);
-
-          let src = member.foto;
-          if (src.startsWith('http') || src.startsWith('/')) {
-            const sep = src.includes('?') ? '&' : '?';
-            src = `${src}${sep}cb=${Date.now()}`;
-          }
-          img.src = src;
-          if (img.complete && img.naturalWidth > 0) finish(img);
-        });
-      }
-
-      // 3. Export to Blob (Double-buffered: try photo, fallback to clean vector canvas)
-      let blob = null;
-
-      // First attempt: try with photo if loaded
-      if (photoEl) {
-        try {
-          const canvas1 = document.createElement('canvas');
-          renderCardToCanvas(canvas1, member, paketNama, paketFasilitas, validUntil, photoEl, qrEl);
-          blob = await new Promise((resolve, reject) => {
-            try {
-              canvas1.toBlob((b) => {
-                if (b) resolve(b);
-                else reject(new Error('Tainted canvas'));
-              }, 'image/png');
-            } catch (err) {
-              reject(err);
-            }
-          });
-        } catch (taintErr) {
-          console.warn('Canvas with photo failed or tainted, falling back to clean vector card:', taintErr);
-          blob = null;
         }
       }
 
-      // Guaranteed second attempt: fresh canvas with vector avatar (never taints)
-      if (!blob) {
-        const canvas2 = document.createElement('canvas');
-        renderCardToCanvas(canvas2, member, paketNama, paketFasilitas, validUntil, null, qrEl);
-        blob = await new Promise((resolve) => {
-          canvas2.toBlob((b) => resolve(b), 'image/png');
-        });
-      }
+      setWaToast(true);
+      setTimeout(() => setWaToast(false), 8000);
 
-      if (!blob) {
-        throw new Error('Gagal merender gambar kartu.');
-      }
-
-      // 4. Trigger download via Object URL
-      const blobUrl = URL.createObjectURL(blob);
-      const fileName = `Kartu-Member-${member.id_member}-${(member.nama || 'member').replace(/\s+/g, '_')}.png`;
-
-      const link = document.createElement('a');
-      link.style.display = 'none';
-      link.href = blobUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-
-      setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(blobUrl);
-      }, 2000);
-
-      setDownloadSuccess(true);
-      setTimeout(() => setDownloadSuccess(false), 2500);
+      // 4. Buka tab WhatsApp dengan pesan terisi rapi
+      const waUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
+      window.open(waUrl, '_blank');
     } catch (err) {
-      console.error('Error generating card image:', err);
-      alert('Gagal mendownload gambar: ' + (err.message || 'Terjadi kesalahan sistem'));
+      console.error('Error preparing WhatsApp card:', err);
+      // Fallback: tetap buka WhatsApp jika render gambar gagal
+      const waUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
+      window.open(waUrl, '_blank');
     } finally {
-      setDownloadingImage(false);
+      setSendingWa(false);
     }
   };
 
@@ -697,6 +717,18 @@ Terima kasih telah menjadi bagian dari keluarga besar FORMA! 🙏`;
               Masa Berlaku: <strong className="text-emerald-400 font-bold">Berlaku sampai {validUntil}</strong>
             </div>
           </div>
+
+          {/* WhatsApp Toast Guidance Banner */}
+          {waToast && (
+            <div className="no-print w-[540px] mt-3 p-3 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-emerald-200 text-xs flex items-center space-x-2.5 animate-in fade-in duration-200 shadow-lg">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+              <div className="flex-1 text-[11px] leading-relaxed">
+                <strong className="text-emerald-300 font-bold">Gambar kartu otomatis diunduh & disalin!</strong>
+                <br />
+                Di WhatsApp, Anda cukup tekan <kbd className="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-white font-mono text-[10px]">Ctrl + V</kbd> untuk tempel gambar, atau klik lampirkan (<span className="text-white font-bold">📎</span>) dari folder Downloads.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal Actions (Image 2 style with WhatsApp button) */}
@@ -756,11 +788,16 @@ Terima kasih telah menjadi bagian dari keluarga besar FORMA! 🙏`;
             <button
               type="button"
               onClick={handleSendWhatsApp}
-              className="flex items-center space-x-1.5 px-4.5 py-2.5 text-xs font-black text-white bg-[#25D366] hover:bg-[#20ba59] rounded-xl shadow-lg shadow-emerald-500/20 transition active:scale-95"
-              title="Kirim ucapan selamat & rincian kartu ke WhatsApp member"
+              disabled={sendingWa}
+              className="flex items-center space-x-1.5 px-4.5 py-2.5 text-xs font-black text-white bg-[#25D366] hover:bg-[#20ba59] rounded-xl shadow-lg shadow-emerald-500/20 transition active:scale-95 disabled:opacity-50"
+              title="Unduh kartu otomatis & kirim pesan resmi ke WhatsApp member"
             >
-              <MessageCircle className="w-4 h-4" />
-              <span>Kirim ke WhatsApp</span>
+              {sendingWa ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <MessageCircle className="w-4 h-4" />
+              )}
+              <span>{sendingWa ? 'Menyiapkan...' : 'Kirim ke WhatsApp'}</span>
             </button>
           </div>
         </div>

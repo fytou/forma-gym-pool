@@ -1,9 +1,10 @@
-import React, { useRef } from 'react';
-import { Printer, X, Download, ShieldCheck, Dumbbell, Waves } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Printer, X, Download, ShieldCheck, Dumbbell, Waves, FileDown, Image, RefreshCw } from 'lucide-react';
 import { formatDateIndo } from '../utils/api';
 
 export default function MemberCardModal({ member, qrImage, onClose }) {
   const cardRef = useRef(null);
+  const [downloadingImage, setDownloadingImage] = useState(false);
 
   if (!member) return null;
 
@@ -19,15 +20,165 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
     a.click();
   };
 
+  // Download entire card as high-res PNG image
+  const handleDownloadCardImage = () => {
+    setDownloadingImage(true);
+    const canvas = document.createElement('canvas');
+    const scale = 2; // 2x retina sharpness
+    const w = 420 * scale;
+    const h = 250 * scale;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+
+    // 1. Background gradient
+    const grad = ctx.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, '#020617'); // slate-950
+    grad.addColorStop(0.5, '#0f172a'); // slate-900
+    grad.addColorStop(1, '#022c22'); // emerald-950
+    ctx.fillStyle = grad;
+
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(0, 0, w, h, 20 * scale);
+      ctx.fill();
+    } else {
+      ctx.fillRect(0, 0, w, h);
+    }
+
+    // Border
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 2 * scale;
+    ctx.stroke();
+
+    // 2. Header: FORMA MEMBER PASS
+    ctx.fillStyle = '#10b981'; // emerald-500
+    ctx.font = `bold ${16 * scale}px "Plus Jakarta Sans", sans-serif`;
+    ctx.fillText('FORMA', 24 * scale, 34 * scale);
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = `bold ${11 * scale}px "Plus Jakarta Sans", sans-serif`;
+    ctx.fillText('MEMBER PASS', 90 * scale, 34 * scale);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = `${8 * scale}px "Plus Jakarta Sans", sans-serif`;
+    ctx.fillText('SMART SYSTEM FOR BUSINESS', 24 * scale, 48 * scale);
+
+    // Facility Badge
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(w - 140 * scale, 18 * scale, 116 * scale, 24 * scale);
+    ctx.strokeStyle = '#059669';
+    ctx.strokeRect(w - 140 * scale, 18 * scale, 116 * scale, 24 * scale);
+    ctx.fillStyle = '#34d399';
+    ctx.font = `bold ${10 * scale}px "Plus Jakarta Sans", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(paketFasilitas === 'Gym+Pool' ? 'ALL ACCESS' : paketFasilitas, w - 82 * scale, 34 * scale);
+    ctx.textAlign = 'left';
+
+    // Divider
+    ctx.strokeStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.moveTo(24 * scale, 58 * scale);
+    ctx.lineTo(w - 24 * scale, 58 * scale);
+    ctx.stroke();
+
+    // 3. Photo & Details
+    const photoImg = new Image();
+    photoImg.crossOrigin = 'anonymous';
+    photoImg.src = member.foto || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200';
+
+    const qrImg = new Image();
+    qrImg.src = qrImage;
+
+    const renderRemaining = () => {
+      // Photo rounded rect
+      try {
+        ctx.save();
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(24 * scale, 74 * scale, 70 * scale, 70 * scale, 12 * scale);
+        else ctx.rect(24 * scale, 74 * scale, 70 * scale, 70 * scale);
+        ctx.clip();
+        ctx.drawImage(photoImg, 24 * scale, 74 * scale, 70 * scale, 70 * scale);
+        ctx.restore();
+      } catch (e) {
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(24 * scale, 74 * scale, 70 * scale, 70 * scale);
+      }
+
+      // Member Name
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${16 * scale}px "Plus Jakarta Sans", sans-serif`;
+      ctx.fillText(member.nama, 108 * scale, 94 * scale);
+
+      // Member ID
+      ctx.fillStyle = '#34d399';
+      ctx.font = `bold ${12 * scale}px "JetBrains Mono", monospace`;
+      ctx.fillText(member.id_member, 108 * scale, 114 * scale);
+
+      // Package & Phone
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = `${10 * scale}px "Plus Jakarta Sans", sans-serif`;
+      ctx.fillText(`Paket: ${paketNama}`, 108 * scale, 132 * scale);
+      ctx.fillText(`HP: ${member.no_hp}`, 108 * scale, 148 * scale);
+
+      // QR Code
+      try {
+        ctx.fillStyle = '#ffffff';
+        if (ctx.roundRect) ctx.roundRect(w - 100 * scale, 74 * scale, 76 * scale, 76 * scale, 10 * scale);
+        else ctx.fillRect(w - 100 * scale, 74 * scale, 76 * scale, 76 * scale);
+        ctx.fill();
+        ctx.drawImage(qrImg, w - 96 * scale, 78 * scale, 68 * scale, 68 * scale);
+      } catch (e) {}
+
+      // Footer
+      ctx.strokeStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.moveTo(24 * scale, 210 * scale);
+      ctx.lineTo(w - 24 * scale, 210 * scale);
+      ctx.stroke();
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = `${9 * scale}px "Plus Jakarta Sans", sans-serif`;
+      ctx.fillText('Berlaku s/d: ', 24 * scale, 228 * scale);
+      ctx.fillStyle = '#34d399';
+      ctx.font = `bold ${9 * scale}px "Plus Jakarta Sans", sans-serif`;
+      ctx.fillText(validUntil, 84 * scale, 228 * scale);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = `${8 * scale}px "JetBrains Mono", monospace`;
+      ctx.textAlign = 'right';
+      ctx.fillText('FORMA-SECURE-ACCESS', w - 24 * scale, 228 * scale);
+
+      // Download trigger
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `Kartu-Member-${member.id_member}-${member.nama.replace(/\s+/g, '_')}.png`;
+      a.click();
+      setDownloadingImage(false);
+    };
+
+    photoImg.onload = () => {
+      if (qrImg.complete) renderRemaining();
+      else qrImg.onload = renderRemaining;
+    };
+    photoImg.onerror = () => {
+      if (qrImg.complete) renderRemaining();
+      else qrImg.onload = renderRemaining;
+    };
+    if (photoImg.complete && qrImg.complete) {
+      renderRemaining();
+    }
+  };
+
   const paketNama = member.membership?.nama_paket || 'Tanpa Paket';
   const paketFasilitas = member.membership?.paket_fasilitas || 'Gym';
   const validUntil = member.membership?.tanggal_berakhir ? formatDateIndo(member.membership.tanggal_berakhir) : '-';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden no-print animate-in fade-in zoom-in duration-200">
+    <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="modal-box bg-white rounded-2xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-200">
         {/* Modal Header */}
-        <div className="bg-slate-900 px-6 py-4 flex items-center justify-between text-white border-b border-slate-800">
+        <div className="no-print bg-slate-900 px-6 py-4 flex items-center justify-between text-white border-b border-slate-800">
           <div className="flex items-center space-x-2">
             <ShieldCheck className="w-5 h-5 text-emerald-400" />
             <h3 className="font-bold text-base tracking-wide">Kartu Fisik Member FORMA</h3>
@@ -40,13 +191,13 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="p-6 bg-slate-100 flex flex-col items-center">
-          <p className="text-xs text-slate-500 mb-4 text-center max-w-md">
-            Cetak kartu fisik ini untuk member sebagai kartu akses masuk gym & pool. QR Code di bawah siap dipindai oleh scanner barcode / kamera front desk.
+        {/* Modal Body / Print Wrapper */}
+        <div className="print-card-wrapper p-6 bg-slate-100 flex flex-col items-center">
+          <p className="no-print text-xs text-slate-500 mb-4 text-center max-w-md">
+            Gunakan tombol <strong>Cetak / Simpan PDF</strong> untuk cetak printer / download PDF, atau tombol <strong>Simpan Gambar Kartu (PNG)</strong> untuk mengirimkan kartu ke WhatsApp member.
           </p>
 
-          {/* PRINTABLE CARD AREA (Standard CR80 ID Card Aspect Ratio 85.6mm x 53.98mm) */}
+          {/* PRINTABLE CARD AREA (Standard CR80 ID Card Dimensions) */}
           <div 
             ref={cardRef}
             className="print-card-area w-[420px] h-[250px] bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white rounded-2xl shadow-xl border border-slate-800 p-5 flex flex-col justify-between relative overflow-hidden select-none"
@@ -154,28 +305,46 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
         </div>
 
         {/* Modal Actions */}
-        <div className="px-6 py-4 bg-white border-t border-slate-200 flex items-center justify-between">
-          <button
-            onClick={handleDownloadQr}
-            className="flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Download File QR</span>
-          </button>
-
-          <div className="flex items-center space-x-2">
+        <div className="no-print px-6 py-4 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center space-x-2 w-full sm:w-auto">
             <button
+              type="button"
+              onClick={handleDownloadQr}
+              className="flex-1 sm:flex-initial flex items-center justify-center space-x-1.5 px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>File QR</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadCardImage}
+              disabled={downloadingImage}
+              className="flex-1 sm:flex-initial flex items-center justify-center space-x-1.5 px-3.5 py-2 text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-100 hover:bg-emerald-200 rounded-lg transition disabled:opacity-50"
+            >
+              {downloadingImage ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Image className="w-3.5 h-3.5 text-emerald-700" />
+              )}
+              <span>Download Gambar (PNG)</span>
+            </button>
+          </div>
+
+          <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
+            <button
+              type="button"
               onClick={onClose}
               className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition"
             >
               Tutup
             </button>
             <button
+              type="button"
               onClick={handlePrint}
-              className="flex items-center space-x-2 px-5 py-2.5 text-xs font-bold text-slate-950 bg-emerald-500 hover:bg-emerald-400 rounded-lg shadow-md shadow-emerald-500/25 transition active:scale-95"
+              className="flex items-center space-x-2 px-5 py-2.5 text-xs font-extrabold text-slate-950 bg-emerald-500 hover:bg-emerald-400 rounded-lg shadow-md shadow-emerald-500/25 transition active:scale-95"
             >
               <Printer className="w-4 h-4" />
-              <span>Cetak Kartu Member</span>
+              <span>Cetak / Simpan PDF</span>
             </button>
           </div>
         </div>

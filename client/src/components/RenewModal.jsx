@@ -85,7 +85,7 @@ export default function RenewModal({ member, onClose, onSuccess }) {
         {/* Header */}
         <div className="bg-slate-900 px-6 py-4 flex items-center justify-between text-white border-b border-slate-800">
           <div className="flex items-center space-x-2.5">
-            <RefreshCw className="w-5 h-5 text-emerald-400" />
+            <RefreshCw className="w-5 h-5 text-[#dfc185]" />
             <div>
               <h3 className="font-bold text-base">Perpanjangan Membership</h3>
               <p className="text-xs text-slate-400">Perpanjang masa aktif keanggotaan member</p>
@@ -111,7 +111,7 @@ export default function RenewModal({ member, onClose, onSuccess }) {
               <span>{member.no_hp}</span>
             </div>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Status saat ini: <strong className={member.status === 'Active' ? 'text-emerald-600' : 'text-rose-600'}>
+              Status saat ini: <strong className={member.status === 'Active' ? 'text-[#b89047]' : 'text-rose-600'}>
                 {member.status === 'Active' ? `Aktif (${member.sisa_hari} hari lagi)` : 'Sudah Berakhir'}
               </strong>
             </p>
@@ -141,7 +141,7 @@ export default function RenewModal({ member, onClose, onSuccess }) {
                     onClick={() => setSelectedPkgId(pkg.id_paket)}
                     className={`p-3 rounded-xl border text-left cursor-pointer transition flex items-center justify-between ${
                       isSelected
-                        ? 'border-emerald-500 bg-emerald-50/50 shadow-sm ring-1 ring-emerald-500'
+                        ? 'border-[#c5a059] bg-[#c5a059]/10 shadow-sm ring-1 ring-[#c5a059]'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
                     }`}
                   >
@@ -155,7 +155,7 @@ export default function RenewModal({ member, onClose, onSuccess }) {
                       <p className="text-xs text-slate-500 mt-0.5">{pkg.durasi_label}</p>
                     </div>
                     <div className="text-right">
-                      <span className="text-sm font-extrabold text-emerald-600 font-mono">
+                      <span className="text-sm font-extrabold text-[#967434] font-mono">
                         {formatRupiah(pkg.harga)}
                       </span>
                     </div>
@@ -176,7 +176,7 @@ export default function RenewModal({ member, onClose, onSuccess }) {
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full text-xs font-medium border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full text-xs font-medium border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c5a059] focus:outline-none"
                   required
                 />
               </div>
@@ -205,7 +205,7 @@ export default function RenewModal({ member, onClose, onSuccess }) {
                   onClick={() => setPaymentMethod(m)}
                   className={`py-2 px-3 rounded-lg text-xs font-bold border transition ${
                     paymentMethod === m
-                      ? 'border-emerald-500 bg-emerald-500 text-slate-950 shadow-sm'
+                      ? 'border-[#c5a059] bg-[#c5a059] text-slate-950 font-bold shadow-sm'
                       : 'border-slate-200 text-slate-700 hover:bg-slate-50'
                   }`}
                 >
@@ -217,14 +217,14 @@ export default function RenewModal({ member, onClose, onSuccess }) {
 
           {/* Summary Box */}
           {selectedPackage && (
-            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between text-xs">
+            <div className="p-3 bg-[#c5a059]/15 rounded-xl border border-[#c5a059]/40 flex items-center justify-between text-xs">
               <div>
                 <span className="text-slate-600">Total Pembayaran:</span>
-                <p className="font-extrabold text-base text-emerald-800 font-mono">
+                <p className="font-extrabold text-base text-[#967434] font-mono">
                   {formatRupiah(selectedPackage.harga)}
                 </p>
               </div>
-              <div className="text-right text-[11px] text-emerald-700 font-medium">
+              <div className="text-right text-[11px] text-[#967434] font-medium">
                 Aktif {selectedPackage.durasi} Hari ke depan
               </div>
             </div>
@@ -242,7 +242,7 @@ export default function RenewModal({ member, onClose, onSuccess }) {
             <button
               type="submit"
               disabled={loading || !selectedPackage}
-              className="flex-1 py-2.5 text-xs font-bold text-slate-950 bg-emerald-500 hover:bg-emerald-400 rounded-xl shadow-md shadow-emerald-500/25 transition disabled:opacity-50"
+              className="flex-1 py-2.5 text-xs font-black text-slate-950 bg-[#c5a059] hover:bg-[#b89047] rounded-xl shadow-md shadow-[#c5a059]/25 transition disabled:opacity-50"
             >
               {loading ? 'Menyimpan...' : 'Konfirmasi Perpanjangan'}
             </button>

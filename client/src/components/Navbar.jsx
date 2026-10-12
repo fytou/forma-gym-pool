@@ -38,14 +38,16 @@ export default function Navbar({ activeTab, setActiveTab }) {
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('checkin')}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-md shadow-emerald-500/20">
-              <Dumbbell className="w-6 h-6 text-slate-950 font-bold" />
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="FORMA Logo" 
+              className="w-10 h-10 object-contain rounded-xl border border-[#c5a059]/40 bg-black p-0.5 shadow-md shadow-[#c5a059]/15" 
+            />
             <div>
               <div className="flex items-center space-x-2">
                 <span className="font-extrabold text-lg tracking-wider text-white">FORMA</span>
-                <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  GYM & POOL
+                <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-[#c5a059]/20 text-[#dfc185] border border-[#c5a059]/40">
+                  GYM • CAFE • POOL
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Smart System for Business</p>
@@ -63,14 +65,14 @@ export default function Navbar({ activeTab, setActiveTab }) {
                   onClick={() => setActiveTab(item.id)}
                   className={`relative flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
                     isActive
-                      ? 'bg-emerald-500 text-slate-950 font-semibold shadow-md shadow-emerald-500/25'
+                      ? 'bg-[#c5a059] text-slate-950 font-bold shadow-md shadow-[#c5a059]/25'
                       : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
                   }`}
                 >
                   <Icon className={`w-4 h-4 ${isActive ? 'text-slate-950' : 'text-slate-400'}`} />
                   <span>{item.label}</span>
                   {item.badge && !isActive && (
-                    <span className="ml-1 text-[10px] px-1.5 py-0.2 bg-emerald-950 text-emerald-400 border border-emerald-700/50 rounded font-semibold">
+                    <span className="ml-1 text-[10px] px-1.5 py-0.2 bg-[#c5a059]/20 text-[#dfc185] border border-[#c5a059]/40 rounded font-semibold">
                       {item.badge}
                     </span>
                   )}
@@ -90,8 +92,8 @@ export default function Navbar({ activeTab, setActiveTab }) {
               </div>
             </div>
 
-            <div className="flex items-center space-x-1.5 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-1.5 rounded-lg text-xs text-emerald-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <div className="flex items-center space-x-1.5 bg-[#c5a059]/15 border border-[#c5a059]/40 px-2.5 py-1.5 rounded-lg text-xs text-[#dfc185]">
+              <span className="w-2 h-2 rounded-full bg-[#c5a059] animate-pulse"></span>
               <span className="font-semibold">Front Desk Aktif</span>
             </div>
           </div>
@@ -108,7 +110,7 @@ export default function Navbar({ activeTab, setActiveTab }) {
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               className={`flex-shrink-0 flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${
-                isActive ? 'bg-emerald-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+                isActive ? 'bg-[#c5a059] text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />

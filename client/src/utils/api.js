@@ -31,8 +31,8 @@ export function getStatusBadge(status) {
     case 'Active':
       return {
         label: 'Aktif',
-        bg: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-        dot: 'bg-emerald-500'
+        bg: 'bg-amber-50 text-amber-900 border-amber-300',
+        dot: 'bg-[#c5a059]'
       };
     case 'Expiring Soon':
       return {

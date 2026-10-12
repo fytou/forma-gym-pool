@@ -59,7 +59,7 @@ export default function LogsView() {
           onClick={fetchLogs}
           className="flex items-center space-x-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition self-start sm:self-auto"
         >
-          <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />
+          <RefreshCw className="w-3.5 h-3.5 text-[#c5a059]" />
           <span>Refresh Data</span>
         </button>
       </div>
@@ -73,7 +73,7 @@ export default function LogsView() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Cari member..."
-            className="w-full pl-9 pr-3 py-2 text-xs font-medium rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            className="w-full pl-9 pr-3 py-2 text-xs font-medium rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#c5a059] focus:outline-none"
           />
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
         </div>
@@ -84,7 +84,7 @@ export default function LogsView() {
             type="date"
             value={tanggal}
             onChange={(e) => setTanggal(e.target.value)}
-            className="w-full px-3 py-2 text-xs font-medium rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+            className="w-full px-3 py-2 text-xs font-medium rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#c5a059] focus:outline-none bg-white"
           />
         </div>
 
@@ -93,7 +93,7 @@ export default function LogsView() {
           <select
             value={fasilitas}
             onChange={(e) => setFasilitas(e.target.value)}
-            className="w-full px-3 py-2 text-xs font-medium rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+            className="w-full px-3 py-2 text-xs font-medium rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#c5a059] focus:outline-none bg-white"
           >
             <option value="Semua">Semua Fasilitas</option>
             <option value="Gym">Hanya Gym</option>
@@ -106,7 +106,7 @@ export default function LogsView() {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="w-full px-3 py-2 text-xs font-medium rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+            className="w-full px-3 py-2 text-xs font-medium rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#c5a059] focus:outline-none bg-white"
           >
             <option value="Semua">Semua Status Validasi</option>
             <option value="ACCESS GRANTED">ACCESS GRANTED (Berhasil)</option>
@@ -120,7 +120,7 @@ export default function LogsView() {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-slate-400">
-            <RefreshCw className="w-5 h-5 animate-spin mx-auto text-emerald-500 mb-2" />
+            <RefreshCw className="w-5 h-5 animate-spin mx-auto text-[#c5a059] mb-2" />
             <span className="text-xs">Memuat log check-in...</span>
           </div>
         ) : logs.length === 0 ? (

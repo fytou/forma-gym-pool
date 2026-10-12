@@ -23,7 +23,7 @@ function dataURLtoBlob(dataurl) {
 }
 
 // Render full card on any HTML5 canvas (Luxury Black & Gold Theme matching FORMA standard)
-function renderCardToCanvas(canvas, member, paketNama, paketFasilitas, validUntil, photoEl, qrEl) {
+function renderCardToCanvas(canvas, member, paketNama, paketFasilitas, validUntil, photoEl, qrEl, logoEl) {
   const scale = 2; // 2x sharp HD resolution
   const w = 540 * scale;
   const h = 320 * scale;
@@ -105,92 +105,30 @@ function renderCardToCanvas(canvas, member, paketNama, paketFasilitas, validUnti
   ctx.stroke();
 
   // ==========================================
-  // LEFT COLUMN: FORMA LOGO & BRANDING
+  // LEFT COLUMN: OFFICIAL FORMA LOGO IMAGE
   // ==========================================
-  const logoCenterX = 112 * scale;
-
-  // Draw Stylized "F" mark in gold
-  const fx = 75 * scale;
-  const fy = 35 * scale;
-  const fw = 22 * scale;
-  const fh = 86 * scale;
-
-  // Stem of "F"
-  ctx.fillStyle = '#c5a059';
-  if (ctx.roundRect) {
-    ctx.beginPath();
-    ctx.roundRect(fx, fy, fw, fh, 4 * scale);
-    ctx.fill();
-    // Top bar
-    ctx.beginPath();
-    ctx.roundRect(fx, fy, 68 * scale, 17 * scale, 4 * scale);
-    ctx.fill();
-    // Middle bar
-    ctx.beginPath();
-    ctx.roundRect(fx, fy + 34 * scale, 46 * scale, 14 * scale, 4 * scale);
-    ctx.fill();
+  if (logoEl) {
+    try {
+      const logoSize = 180 * scale;
+      const lx = 18 * scale;
+      const ly = (274 * scale - logoSize) / 2 + 10 * scale;
+      ctx.drawImage(logoEl, lx, ly, logoSize, logoSize);
+    } catch (e) {
+      ctx.fillStyle = '#c5a059';
+      ctx.font = `bold ${16 * scale}px "Plus Jakarta Sans", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('F O R M A', 112 * scale, 150 * scale);
+      ctx.textAlign = 'left';
+    }
   } else {
-    ctx.fillRect(fx, fy, fw, fh);
-    ctx.fillRect(fx, fy, 68 * scale, 17 * scale);
-    ctx.fillRect(fx, fy + 34 * scale, 46 * scale, 14 * scale);
+    ctx.fillStyle = '#c5a059';
+    ctx.font = `bold ${16 * scale}px "Plus Jakarta Sans", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText('F O R M A', 112 * scale, 150 * scale);
+    ctx.font = `bold ${8.5 * scale}px "Plus Jakarta Sans", sans-serif`;
+    ctx.fillText('— GYM • CAFE • POOL —', 112 * scale, 168 * scale);
+    ctx.textAlign = 'left';
   }
-
-  // 3 Icon cutout boxes inside the stem
-  const drawCutout = (cy, type) => {
-    const cx = fx + 3 * scale;
-    const cw = 16 * scale;
-    const ch = 13 * scale;
-    ctx.fillStyle = '#0c0c0c';
-    if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(cx, cy, cw, ch, 2 * scale);
-      ctx.fill();
-    } else {
-      ctx.fillRect(cx, cy, cw, ch);
-    }
-    // Icon lines in gold
-    ctx.strokeStyle = '#c5a059';
-    ctx.lineWidth = 1.2 * scale;
-    if (type === 'gym') {
-      ctx.beginPath();
-      ctx.moveTo(cx + 3 * scale, cy + ch / 2);
-      ctx.lineTo(cx + cw - 3 * scale, cy + ch / 2);
-      ctx.moveTo(cx + 4 * scale, cy + 3 * scale);
-      ctx.lineTo(cx + 4 * scale, cy + ch - 3 * scale);
-      ctx.moveTo(cx + cw - 4 * scale, cy + 3 * scale);
-      ctx.lineTo(cx + cw - 4 * scale, cy + ch - 3 * scale);
-      ctx.stroke();
-    } else if (type === 'cafe') {
-      ctx.beginPath();
-      ctx.rect(cx + 3 * scale, cy + 5 * scale, cw - 6 * scale, 5 * scale);
-      ctx.stroke();
-    } else if (type === 'pool') {
-      ctx.beginPath();
-      ctx.moveTo(cx + 2 * scale, cy + 6 * scale);
-      ctx.lineTo(cx + cw - 2 * scale, cy + 6 * scale);
-      ctx.moveTo(cx + 2 * scale, cy + 9 * scale);
-      ctx.lineTo(cx + cw - 2 * scale, cy + 9 * scale);
-      ctx.stroke();
-    }
-  };
-
-  drawCutout(fy + 5 * scale, 'gym');
-  drawCutout(fy + 22 * scale, 'cafe');
-  drawCutout(fy + 39 * scale, 'pool');
-
-  // Text below Logo
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#c5a059';
-  ctx.font = `bold ${16 * scale}px "Plus Jakarta Sans", sans-serif`;
-  ctx.fillText('F O R M A', logoCenterX, 150 * scale);
-
-  ctx.font = `bold ${8.5 * scale}px "Plus Jakarta Sans", sans-serif`;
-  ctx.fillText('— GYM • CAFE • POOL —', logoCenterX, 168 * scale);
-
-  ctx.fillStyle = '#dfc185';
-  ctx.font = `italic ${7.5 * scale}px "Plus Jakarta Sans", sans-serif`;
-  ctx.fillText('— KUAT, FOKUS, SEGAR SETIAP HARI —', logoCenterX, 184 * scale);
-  ctx.textAlign = 'left';
 
   // ==========================================
   // RIGHT COLUMN: MEMBERSHIP DETAILS
@@ -307,7 +245,7 @@ function renderCardToCanvas(canvas, member, paketNama, paketFasilitas, validUnti
   ctx.font = `bold ${8 * scale}px "Plus Jakarta Sans", sans-serif`;
   ctx.fillText('MASA BERLAKU:', plx, py + 52 * scale);
 
-  ctx.fillStyle = '#10b981';
+  ctx.fillStyle = '#dfc185';
   ctx.font = `bold ${10.5 * scale}px "Plus Jakarta Sans", sans-serif`;
   ctx.fillText(validUntil, plx, py + 68 * scale);
 
@@ -408,13 +346,26 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
       });
     }
 
-    // 3. Render ke Blob (Double-buffered: canvas1 dengan foto, canvas2 dengan avatar vector)
+    // 3. Preload Official Logo Image
+    let logoEl = null;
+    try {
+      logoEl = await new Promise((resolve) => {
+        const img = new window.Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        setTimeout(() => resolve(null), 1200);
+        img.src = '/logo.png';
+        if (img.complete && img.naturalWidth > 0) resolve(img);
+      });
+    } catch (e) {}
+
+    // 4. Render ke Blob (Double-buffered: canvas1 dengan foto, canvas2 dengan avatar vector)
     let blob = null;
 
     if (photoEl) {
       try {
         const canvas1 = document.createElement('canvas');
-        renderCardToCanvas(canvas1, member, paketNama, paketFasilitas, validUntil, photoEl, qrEl);
+        renderCardToCanvas(canvas1, member, paketNama, paketFasilitas, validUntil, photoEl, qrEl, logoEl);
         blob = await new Promise((resolve, reject) => {
           try {
             canvas1.toBlob((b) => {
@@ -433,7 +384,7 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
 
     if (!blob) {
       const canvas2 = document.createElement('canvas');
-      renderCardToCanvas(canvas2, member, paketNama, paketFasilitas, validUntil, null, qrEl);
+      renderCardToCanvas(canvas2, member, paketNama, paketFasilitas, validUntil, null, qrEl, logoEl);
       blob = await new Promise((resolve) => {
         canvas2.toBlob((b) => resolve(b), 'image/png');
       });
@@ -589,36 +540,13 @@ Terima kasih telah menjadi bagian dari keluarga besar FORMA! 🙏`;
 
               {/* Main Content: Left Logo & Right Info */}
               <div className="flex items-stretch flex-1">
-                {/* LEFT: FORMA LOGO */}
-                <div className="w-[38%] flex flex-col items-center justify-center border-r border-[#c5a059]/35 pr-3">
-                  {/* Stylized F Mark */}
-                  <div className="w-16 h-20 relative flex items-center justify-center">
-                    <svg viewBox="0 0 100 120" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path
-                        d="M20 12 C20 8 24 5 28 5 H86 C91 5 95 9 95 14 C95 19 91 23 86 23 H38 V48 H74 C79 48 83 52 83 57 C83 62 79 66 74 66 H38 V110 C38 114 34 117 30 117 C25 117 20 114 20 110 V12 Z"
-                        fill="#c5a059"
-                      />
-                      {/* 3 icons stacked inside the stem */}
-                      <rect x="23" y="10" width="13" height="11" rx="2" fill="#0c0c0c" />
-                      <path d="M25 15.5 H34 M25 13.5 V17.5 M34 13.5 V17.5" stroke="#c5a059" strokeWidth="1.2" strokeLinecap="round" />
-                      
-                      <rect x="23" y="27" width="13" height="11" rx="2" fill="#0c0c0c" />
-                      <path d="M25.5 31.5 H31.5 C32 31.5 32.5 32 32.5 32.5 V34.5 C32.5 36 31 36.5 28.5 36.5 C26 36.5 24.5 36 24.5 34.5 V32.5 C24.5 32 25 31.5 25.5 31.5 Z M32.5 32.5 H34 C34.5 32.5 34.8 33 34.5 33.5 C34.2 34 33.8 34.2 32.5 34.2" stroke="#c5a059" strokeWidth="0.9" strokeLinecap="round" strokeLinejoin="round" />
-
-                      <rect x="23" y="44" width="13" height="11" rx="2" fill="#0c0c0c" />
-                      <path d="M25 48 C27 47 29 49 31 48 C33 47 34 48 34 48 M25 51 C27 50 29 52 31 51 C33 50 34 51 34 51" stroke="#c5a059" strokeWidth="1" strokeLinecap="round" />
-                    </svg>
-                  </div>
-
-                  <span className="font-extrabold text-[15px] tracking-[0.25em] text-[#c5a059] uppercase mt-1">
-                    FORMA
-                  </span>
-                  <span className="text-[8px] tracking-[0.2em] text-[#c5a059] uppercase font-semibold">
-                    — GYM • CAFE • POOL —
-                  </span>
-                  <span className="text-[7px] tracking-[0.08em] text-[#dfc185] italic mt-0.5 font-light">
-                    — KUAT, FOKUS, SEGAR SETIAP HARI —
-                  </span>
+                {/* LEFT: OFFICIAL FORMA LOGO */}
+                <div className="w-[38%] flex items-center justify-center border-r border-[#c5a059]/35 pr-3">
+                  <img
+                    src="/logo.png"
+                    alt="FORMA Official Logo"
+                    className="w-full h-auto max-h-[250px] object-contain drop-shadow"
+                  />
                 </div>
 
                 {/* RIGHT: MEMBER DETAILS */}
@@ -691,7 +619,7 @@ Terima kasih telah menjadi bagian dari keluarga besar FORMA! 🙏`;
                         <span className="text-[7.5px] font-bold tracking-wider text-[#c5a059] block uppercase">
                           MASA BERLAKU:
                         </span>
-                        <span className="text-[10.5px] font-black text-emerald-400 block tracking-tight">
+                        <span className="text-[10.5px] font-black text-[#dfc185] block tracking-tight">
                           {validUntil}
                         </span>
                       </div>
@@ -714,16 +642,16 @@ Terima kasih telah menjadi bagian dari keluarga besar FORMA! 🙏`;
               Paket: <strong className="text-white font-bold">{paketNama}</strong>
             </div>
             <div className="text-slate-400 text-xs">
-              Masa Berlaku: <strong className="text-emerald-400 font-bold">Berlaku sampai {validUntil}</strong>
+              Masa Berlaku: <strong className="text-[#dfc185] font-bold">Berlaku sampai {validUntil}</strong>
             </div>
           </div>
 
           {/* WhatsApp Toast Guidance Banner */}
           {waToast && (
-            <div className="no-print w-[540px] mt-3 p-3 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-emerald-200 text-xs flex items-center space-x-2.5 animate-in fade-in duration-200 shadow-lg">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            <div className="no-print w-[540px] mt-3 p-3 bg-[#1e1b13] border border-[#c5a059]/50 rounded-xl text-[#dfc185] text-xs flex items-center space-x-2.5 animate-in fade-in duration-200 shadow-lg">
+              <CheckCircle2 className="w-4 h-4 text-[#c5a059] flex-shrink-0" />
               <div className="flex-1 text-[11px] leading-relaxed">
-                <strong className="text-emerald-300 font-bold">Gambar kartu otomatis diunduh & disalin!</strong>
+                <strong className="text-white font-bold">Gambar kartu otomatis diunduh & disalin!</strong>
                 <br />
                 Di WhatsApp, Anda cukup tekan <kbd className="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-white font-mono text-[10px]">Ctrl + V</kbd> untuk tempel gambar, atau klik lampirkan (<span className="text-white font-bold">📎</span>) dari folder Downloads.
               </div>
@@ -757,7 +685,7 @@ Terima kasih telah menjadi bagian dari keluarga besar FORMA! 🙏`;
             <button
               type="button"
               onClick={handlePrint}
-              className="flex items-center space-x-1.5 px-4 py-2.5 text-xs font-bold text-slate-900 bg-[#dfc185] hover:bg-[#c5a059] rounded-xl shadow transition active:scale-95"
+              className="flex items-center space-x-1.5 px-4 py-2.5 text-xs font-black text-slate-950 bg-[#c5a059] hover:bg-[#b89047] rounded-xl shadow transition active:scale-95"
             >
               <Printer className="w-4 h-4" />
               <span>Cetak Kartu</span>
@@ -770,7 +698,7 @@ Terima kasih telah menjadi bagian dari keluarga besar FORMA! 🙏`;
               disabled={downloadingImage}
               className={`flex items-center space-x-1.5 px-4 py-2.5 text-xs font-bold rounded-xl border transition disabled:opacity-50 ${
                 downloadSuccess
-                  ? 'bg-emerald-600 text-white border-emerald-500'
+                  ? 'bg-[#c5a059] text-slate-950 border-[#c5a059]'
                   : 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700'
               }`}
             >

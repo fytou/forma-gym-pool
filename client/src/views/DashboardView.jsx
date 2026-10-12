@@ -114,18 +114,18 @@ export default function DashboardView({ onNavigateToCheckin, onNavigateToMembers
         {/* 2. Member Aktif */}
         <div 
           onClick={() => onNavigateToMembers('Active')}
-          className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm hover:border-emerald-300 transition cursor-pointer bg-gradient-to-b from-white to-emerald-50/30"
+          className="bg-white p-5 rounded-2xl border border-[#c5a059]/40 shadow-sm hover:border-[#c5a059] transition cursor-pointer bg-gradient-to-b from-white to-[#c5a059]/10"
         >
-          <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-3">
+          <div className="w-9 h-9 rounded-xl bg-[#c5a059]/20 text-[#967434] flex items-center justify-center mb-3">
             <UserCheck className="w-5 h-5" />
           </div>
-          <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">
+          <span className="text-xs font-bold text-[#967434] uppercase tracking-wider block">
             Member Aktif
           </span>
-          <div className="text-2xl font-black text-emerald-700 mt-1 font-mono">
+          <div className="text-2xl font-black text-[#967434] mt-1 font-mono">
             {m.member_aktif}
           </div>
-          <span className="text-[10px] text-emerald-600 mt-1 block">Akses berlaku</span>
+          <span className="text-[10px] text-[#b89047] mt-1 block font-medium">Akses berlaku</span>
         </div>
 
         {/* 3. Member Akan Expired */}
@@ -179,17 +179,17 @@ export default function DashboardView({ onNavigateToCheckin, onNavigateToMembers
         </div>
 
         {/* 6. Pendapatan Membership */}
-        <div className="bg-white p-5 rounded-2xl border border-emerald-300 shadow-sm bg-gradient-to-b from-white to-emerald-50/50">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center mb-3">
+        <div className="bg-white p-5 rounded-2xl border border-[#c5a059]/40 shadow-sm bg-gradient-to-b from-white to-[#c5a059]/10">
+          <div className="w-9 h-9 rounded-xl bg-[#c5a059] text-slate-950 flex items-center justify-center mb-3 shadow-md shadow-[#c5a059]/20">
             <Wallet className="w-5 h-5" />
           </div>
-          <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">
+          <span className="text-xs font-bold text-[#967434] uppercase tracking-wider block">
             Pendapatan
           </span>
-          <div className="text-lg font-black text-emerald-800 mt-1 font-mono tracking-tight truncate">
+          <div className="text-lg font-black text-[#967434] mt-1 font-mono tracking-tight truncate">
             {m.pendapatan_formatted || formatRupiah(m.pendapatan)}
           </div>
-          <span className="text-[10px] text-emerald-600 mt-1 block">Total membership</span>
+          <span className="text-[10px] text-[#b89047] mt-1 block font-medium">Total membership</span>
         </div>
       </div>
 
@@ -198,7 +198,7 @@ export default function DashboardView({ onNavigateToCheckin, onNavigateToMembers
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
           <div>
             <div className="flex items-center space-x-2">
-              <span className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="w-3 h-3 rounded-full bg-[#c5a059] animate-pulse"></span>
               <h2 className="text-lg font-bold text-white tracking-wide">
                 Okupansi Fasilitas Saat Ini
               </h2>
@@ -210,10 +210,10 @@ export default function DashboardView({ onNavigateToCheckin, onNavigateToMembers
 
           <div className="flex items-center space-x-6">
             <div className="flex items-center space-x-3 bg-slate-800/80 px-4 py-2.5 rounded-xl border border-slate-700/80">
-              <Dumbbell className="w-5 h-5 text-emerald-400" />
+              <Dumbbell className="w-5 h-5 text-[#dfc185]" />
               <div>
                 <span className="text-[10px] text-slate-400 block uppercase font-bold">Okupansi GYM</span>
-                <span className="text-xl font-black text-emerald-400 font-mono">{m.occupancy_gym} Member</span>
+                <span className="text-xl font-black text-[#dfc185] font-mono">{m.occupancy_gym} Member</span>
               </div>
             </div>
 

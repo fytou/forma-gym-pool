@@ -19,7 +19,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
+    <div className="min-h-screen bg-slate-100 flex flex-col font-sans selection:bg-[#c5a059] selection:text-slate-950">
       {/* Navigation */}
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
 
@@ -68,15 +68,15 @@ export default function App() {
       <footer className="bg-white border-t border-slate-200 py-4 no-print mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
           <div className="flex items-center space-x-2">
-            <span className="font-extrabold text-slate-800">FORMA</span>
+            <span className="font-extrabold text-[#c5a059]">FORMA</span>
             <span>•</span>
-            <span>Gym & Pool Management System</span>
-            <span className="hidden md:inline">(Smart System for Business)</span>
+            <span>Gym, Cafe & Pool Management System</span>
+            <span className="hidden md:inline">(Kuat, Fokus, Segar Setiap Hari)</span>
           </div>
           <div className="flex items-center space-x-4">
-            <span>Versi 1.0 (Production Ready)</span>
+            <span>Versi 1.0 (Official Brand)</span>
             <span>•</span>
-            <span className="text-emerald-700 font-medium">Single-Tenant Local Host</span>
+            <span className="text-[#b89047] font-semibold">Single-Tenant Local Host</span>
           </div>
         </div>
       </footer>

@@ -285,7 +285,7 @@ export default function CheckInView({ onNavigateToRegister }) {
               onClick={() => { setSelectedFacility('Gym'); focusInput(); }}
               className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-bold transition ${
                 selectedFacility === 'Gym'
-                  ? 'bg-slate-900 text-emerald-400 shadow-md'
+                  ? 'bg-slate-900 text-[#dfc185] shadow-md'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -318,7 +318,7 @@ export default function CheckInView({ onNavigateToRegister }) {
               onClick={() => { setMode('auto'); focusInput(); }}
               className={`px-3 py-1.5 rounded-lg transition ${
                 mode === 'auto'
-                  ? 'bg-emerald-600 text-white font-bold shadow-sm'
+                  ? 'bg-[#c5a059] text-slate-950 font-black shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -356,7 +356,7 @@ export default function CheckInView({ onNavigateToRegister }) {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-[#c5a059]/15 text-[#b89047] flex items-center justify-center">
                   <Scan className="w-5 h-5" />
                 </div>
                 <div>
@@ -394,7 +394,7 @@ export default function CheckInView({ onNavigateToRegister }) {
                   </>
                 ) : (
                   <>
-                    <Camera className="w-4 h-4 text-emerald-600" />
+                    <Camera className="w-4 h-4 text-[#c5a059]" />
                     <span>Aktifkan Webcam</span>
                   </>
                 )}
@@ -420,17 +420,17 @@ export default function CheckInView({ onNavigateToRegister }) {
                     type="text"
                     value={inputCode}
                     onChange={(e) => setInputCode(e.target.value)}
-                    placeholder="Scan kartu QR / ketik ID (mis: MEM-000101) atau No HP..."
-                    className="w-full pl-11 pr-4 py-4 text-base font-medium rounded-xl border-2 border-emerald-500/80 bg-emerald-50/20 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-600 transition shadow-inner font-mono"
+                    placeholder="Scan kartu QR / ketik ID (mis: FM-2026-00001) atau No HP..."
+                    className="w-full pl-11 pr-4 py-4 text-base font-medium rounded-xl border-2 border-[#c5a059] bg-[#c5a059]/5 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-[#c5a059]/20 focus:border-[#c5a059] transition shadow-inner font-mono"
                     autoFocus
                   />
-                  <Scan className="w-5 h-5 text-emerald-600 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Scan className="w-5 h-5 text-[#c5a059] absolute left-3.5 top-1/2 -translate-y-1/2" />
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading || !inputCode.trim()}
-                  className="px-7 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold rounded-xl shadow-md shadow-emerald-500/25 transition active:scale-95 disabled:opacity-50 flex items-center space-x-2 flex-shrink-0"
+                  className="px-7 py-4 bg-[#c5a059] hover:bg-[#b89047] text-slate-950 font-black rounded-xl shadow-md shadow-[#c5a059]/25 transition active:scale-95 disabled:opacity-50 flex items-center space-x-2 flex-shrink-0"
                 >
                   {loading ? (
                     <RefreshCw className="w-5 h-5 animate-spin" />

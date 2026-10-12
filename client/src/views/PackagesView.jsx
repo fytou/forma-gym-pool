@@ -125,7 +125,7 @@ export default function PackagesView() {
 
         <button
           onClick={openAddModal}
-          className="flex items-center space-x-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs shadow-md shadow-emerald-500/20 transition self-start sm:self-auto"
+          className="flex items-center space-x-2 px-4 py-2.5 bg-[#c5a059] hover:bg-[#b89047] text-slate-950 font-black rounded-xl text-xs shadow-md shadow-[#c5a059]/20 transition self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           <span>+ Buat Paket Baru</span>
@@ -135,7 +135,7 @@ export default function PackagesView() {
       {/* Access Rule Matrix Explainer */}
       <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 shadow-md">
         <div className="flex items-center space-x-2 mb-3">
-          <ShieldCheck className="w-5 h-5 text-emerald-400" />
+          <ShieldCheck className="w-5 h-5 text-[#dfc185]" />
           <h3 className="font-bold text-sm">Aturan Validasi Hak Akses Fasilitas (PRD)</h3>
         </div>
         <p className="text-xs text-slate-400 mb-4">
@@ -145,7 +145,7 @@ export default function PackagesView() {
           <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60">
             <span className="font-bold text-slate-200 block">Paket GYM ONLY</span>
             <div className="mt-2 space-y-1 text-slate-400">
-              <div className="flex items-center space-x-1.5 text-emerald-400">
+              <div className="flex items-center space-x-1.5 text-[#dfc185]">
                 <Check className="w-3.5 h-3.5" /> <span>Pintu Gym: Diberikan Akses</span>
               </div>
               <div className="flex items-center space-x-1.5 text-rose-400">
@@ -169,7 +169,7 @@ export default function PackagesView() {
           <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60">
             <span className="font-bold text-slate-200 block">Paket GYM + POOL (COMBO)</span>
             <div className="mt-2 space-y-1 text-slate-400">
-              <div className="flex items-center space-x-1.5 text-emerald-400">
+              <div className="flex items-center space-x-1.5 text-[#dfc185]">
                 <Check className="w-3.5 h-3.5" /> <span>Pintu Gym: Diberikan Akses</span>
               </div>
               <div className="flex items-center space-x-1.5 text-blue-400">
@@ -193,7 +193,7 @@ export default function PackagesView() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold flex items-center space-x-1 ${
-                    isGymPool ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                    isGymPool ? 'bg-[#c5a059]/20 text-[#967434] border border-[#c5a059]/40' :
                     isPool ? 'bg-blue-100 text-blue-800 border border-blue-300' : 'bg-slate-100 text-slate-800 border border-slate-300'
                   }`}>
                     {isGymPool ? <><Dumbbell className="w-3 h-3" /><span>+</span><Waves className="w-3 h-3" /></> :
@@ -211,7 +211,7 @@ export default function PackagesView() {
 
                 <div className="my-4 pt-3 border-t border-slate-100">
                   <span className="text-xs text-slate-400 block">Harga Membership:</span>
-                  <span className="text-2xl font-black text-emerald-700 font-mono tracking-tight">
+                  <span className="text-2xl font-black text-[#967434] font-mono tracking-tight">
                     {formatRupiah(pkg.harga)}
                   </span>
                 </div>
@@ -337,7 +337,7 @@ export default function PackagesView() {
                       onClick={() => setFasilitas(f)}
                       className={`py-2 px-3 rounded-lg text-xs font-bold border transition ${
                         fasilitas === f
-                          ? 'border-emerald-500 bg-emerald-500 text-slate-950 shadow-sm'
+                          ? 'border-[#c5a059] bg-[#c5a059] text-slate-950 font-bold shadow-sm'
                           : 'border-slate-200 text-slate-700 hover:bg-slate-50'
                       }`}
                     >
@@ -356,7 +356,7 @@ export default function PackagesView() {
                   onChange={(e) => setDeskripsi(e.target.value)}
                   placeholder="Contoh: Akses bebas fitness dan gym setiap hari"
                   rows={2}
-                  className="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 focus:ring-2 focus:ring-[#c5a059]"
                 />
               </div>
 
@@ -370,7 +370,7 @@ export default function PackagesView() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 text-xs font-bold text-slate-950 bg-emerald-500 hover:bg-emerald-400 rounded-lg shadow-md transition"
+                  className="flex-1 py-2 text-xs font-black text-slate-950 bg-[#c5a059] hover:bg-[#b89047] rounded-lg shadow-md transition"
                 >
                   {editingPkg ? 'Simpan Perubahan' : 'Tambah Paket'}
                 </button>

@@ -89,7 +89,7 @@ export default function MembersView({ initialFilter = 'Semua', onNavigateToRegis
 
         <button
           onClick={onNavigateToRegister}
-          className="flex items-center space-x-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs shadow-md shadow-emerald-500/20 transition self-start sm:self-auto"
+          className="flex items-center space-x-2 px-4 py-2.5 bg-[#c5a059] hover:bg-[#b89047] text-slate-950 font-black rounded-xl text-xs shadow-md shadow-[#c5a059]/20 transition self-start sm:self-auto"
         >
           <UserPlus className="w-4 h-4" />
           <span>+ Tambah Member Baru</span>
@@ -105,7 +105,7 @@ export default function MembersView({ initialFilter = 'Semua', onNavigateToRegis
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Cari nama, No HP, atau ID member..."
-            className="w-full pl-9 pr-4 py-2 text-xs font-medium rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full pl-9 pr-4 py-2 text-xs font-medium rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#c5a059]"
           />
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
         </div>
@@ -125,7 +125,7 @@ export default function MembersView({ initialFilter = 'Semua', onNavigateToRegis
                 onClick={() => setStatusFilter(st)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex-shrink-0 ${
                   isSelected
-                    ? 'bg-slate-900 text-emerald-400 shadow-sm'
+                    ? 'bg-slate-900 text-[#dfc185] shadow-sm'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -140,7 +140,7 @@ export default function MembersView({ initialFilter = 'Semua', onNavigateToRegis
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-slate-400 flex items-center justify-center space-x-2">
-            <RefreshCw className="w-5 h-5 animate-spin text-emerald-500" />
+            <RefreshCw className="w-5 h-5 animate-spin text-[#c5a059]" />
             <span className="text-xs">Memuat data member...</span>
           </div>
         ) : members.length === 0 ? (
@@ -179,7 +179,7 @@ export default function MembersView({ initialFilter = 'Semua', onNavigateToRegis
                         <div>
                           <span className="font-bold text-slate-900 block text-sm">{m.nama}</span>
                           {m.currently_inside && (
-                            <span className="inline-block mt-0.5 text-[9px] px-1.5 py-0.2 rounded font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            <span className="inline-block mt-0.5 text-[9px] px-1.5 py-0.2 rounded font-bold bg-[#c5a059]/20 text-[#967434] border border-[#c5a059]/40">
                               Sedang di {m.currently_inside}
                             </span>
                           )}
@@ -221,7 +221,7 @@ export default function MembersView({ initialFilter = 'Semua', onNavigateToRegis
                               {formatDateIndo(m.membership.tanggal_berakhir)}
                             </span>
                             <span className={`text-[10px] font-medium ${
-                              m.status === 'Active' ? 'text-emerald-600' :
+                              m.status === 'Active' ? 'text-[#b89047] font-semibold' :
                               m.status === 'Expiring Soon' ? 'text-amber-600' : 'text-rose-600'
                             }`}>
                               {m.sisa_hari > 0 ? `${m.sisa_hari} hari lagi` : 'Telah berakhir'}
@@ -247,7 +247,7 @@ export default function MembersView({ initialFilter = 'Semua', onNavigateToRegis
                           <button
                             onClick={() => handleOpenCard(m)}
                             title="Cetak Kartu Member"
-                            className="p-1.5 rounded-lg text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 transition"
+                            className="p-1.5 rounded-lg text-slate-600 hover:text-[#967434] hover:bg-amber-50 transition"
                           >
                             <Printer className="w-4 h-4" />
                           </button>

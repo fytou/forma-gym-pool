@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 antialiased min-h-screen selection:bg-emerald-500 selection:text-white font-sans;
+    @apply bg-slate-50 text-slate-900 antialiased min-h-screen selection:bg-[#c5a059] selection:text-slate-950 font-sans;
   }
 }
 

@@ -150,57 +150,107 @@ export default function CheckInView({ onNavigateToRegister }) {
     }
   }
 
-  // Camera QR Scanner Toggle
-  const toggleCamera = async () => {
-    if (cameraActive) {
+  const isScanningRef = useRef(false);
+  const [cameraLoading, setCameraLoading] = useState(false);
+
+  // Stop camera scanner safely
+  const stopCameraScanner = async () => {
+    setCameraLoading(true);
+    const scanner = html5QrCodeRef.current;
+    if (scanner) {
+      try {
+        if (scanner.isScanning) {
+          await scanner.stop();
+        }
+        scanner.clear();
+      } catch (err) {
+        console.warn('Safe cleanup scanner warning:', err);
+      }
+      html5QrCodeRef.current = null;
+    }
+    setCameraActive(false);
+    setCameraLoading(false);
+    isScanningRef.current = false;
+    setTimeout(() => {
+      focusInput();
+    }, 100);
+  };
+
+  // Start camera scanner safely
+  const startCameraScanner = async () => {
+    setCameraLoading(true);
+    try {
+      // If previous scanner instance exists, clean it up
       if (html5QrCodeRef.current) {
         try {
-          await html5QrCodeRef.current.stop();
+          if (html5QrCodeRef.current.isScanning) {
+            await html5QrCodeRef.current.stop();
+          }
           html5QrCodeRef.current.clear();
-        } catch (e) {
-          console.error(e);
-        }
+        } catch (e) {}
+        html5QrCodeRef.current = null;
       }
-      setCameraActive(false);
-    } else {
-      setCameraActive(true);
-      setTimeout(startCameraScanner, 200);
-    }
-  };
 
-  const startCameraScanner = () => {
-    try {
       const qrScanner = new Html5Qrcode('qr-reader-container');
       html5QrCodeRef.current = qrScanner;
-      qrScanner.start(
+
+      await qrScanner.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-          // Success read QR
-          executeScan(decodedText);
-          // Optional short cooldown before next read
+        { 
+          fps: 10, 
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0
         },
-        (errorMessage) => {
-          // ignore frame parse errors
+        (decodedText) => {
+          // Prevent multiple trigger spam with 2.5s cooldown
+          if (isScanningRef.current) return;
+          isScanningRef.current = true;
+
+          executeScan(decodedText);
+
+          setTimeout(() => {
+            isScanningRef.current = false;
+          }, 2500);
+        },
+        () => {
+          // ignore frame parse failure
         }
-      ).catch((err) => {
-        console.error('Camera start error:', err);
-        setCameraActive(false);
-      });
+      );
     } catch (err) {
-      console.error('Html5Qrcode init error:', err);
+      console.warn('Camera start error:', err);
       setCameraActive(false);
+    } finally {
+      setCameraLoading(false);
     }
   };
 
-  // Stop camera on unmount
+  // Camera QR Scanner Toggle
+  const toggleCamera = async () => {
+    if (cameraLoading) return;
+    if (cameraActive) {
+      await stopCameraScanner();
+    } else {
+      setCameraActive(true);
+      setTimeout(() => {
+        startCameraScanner();
+      }, 150);
+    }
+  };
+
+  // Safe cleanup on unmount only
   useEffect(() => {
     return () => {
-      if (html5QrCodeRef.current && cameraActive) {
-        html5QrCodeRef.current.stop().catch(() => {});
+      if (html5QrCodeRef.current) {
+        try {
+          if (html5QrCodeRef.current.isScanning) {
+            html5QrCodeRef.current.stop().catch(() => {});
+          }
+          html5QrCodeRef.current.clear();
+        } catch (e) {}
+        html5QrCodeRef.current = null;
       }
     };
-  }, [cameraActive]);
+  }, []);
 
   // Manual Check-out for someone in the occupancy list
   const handleQuickCheckout = async (logId, namaMember) => {
@@ -321,16 +371,25 @@ export default function CheckInView({ onNavigateToRegister }) {
 
               {/* Toggle camera button */}
               <button
+                type="button"
                 onClick={toggleCamera}
+                disabled={cameraLoading}
                 className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition ${
-                  cameraActive
+                  cameraLoading
+                    ? 'opacity-60 cursor-wait bg-slate-100 text-slate-500 border-slate-200'
+                    : cameraActive
                     ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
-                {cameraActive ? (
+                {cameraLoading ? (
                   <>
-                    <CameraOff className="w-4 h-4" />
+                    <RefreshCw className="w-4 h-4 animate-spin text-slate-600" />
+                    <span>{cameraActive ? 'Menutup Kamera...' : 'Membuka Kamera...'}</span>
+                  </>
+                ) : cameraActive ? (
+                  <>
+                    <CameraOff className="w-4 h-4 text-rose-600" />
                     <span>Tutup Kamera</span>
                   </>
                 ) : (

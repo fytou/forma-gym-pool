@@ -14,11 +14,32 @@ db.exec(`
     id_member TEXT PRIMARY KEY,
     nama TEXT NOT NULL,
     no_hp TEXT NOT NULL,
+    nik TEXT,
     foto TEXT,
     qr_code TEXT NOT NULL UNIQUE,
     created_at TEXT DEFAULT (datetime('now', 'localtime'))
   );
 `);
+
+// Migration: Ensure nik column exists in members table
+try {
+  db.exec('ALTER TABLE members ADD COLUMN nik TEXT;');
+} catch (e) {
+  // column already exists
+}
+
+// Populate sample NIK for existing members if empty
+try {
+  const nullNikMembers = db.prepare("SELECT id_member FROM members WHERE nik IS NULL OR nik = ''").all();
+  if (nullNikMembers && nullNikMembers.length > 0) {
+    const updateNik = db.prepare('UPDATE members SET nik = ? WHERE id_member = ?');
+    nullNikMembers.forEach((m, idx) => {
+      updateNik.run(`32770255058700${String(15 + idx).padStart(2, '0')}`, m.id_member);
+    });
+  }
+} catch (e) {
+  console.error('Error migrating NIK:', e);
+}
 
 // 2. Packages (Paket)
 db.exec(`
@@ -184,8 +205,8 @@ function seedDatabase() {
     ];
 
     const insertMember = db.prepare(`
-      INSERT INTO members (id_member, nama, no_hp, foto, qr_code)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO members (id_member, nama, no_hp, nik, foto, qr_code)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
 
     const insertMembership = db.prepare(`
@@ -198,8 +219,10 @@ function seedDatabase() {
       VALUES (?, ?, ?, datetime('now', 'localtime'), ?)
     `);
 
-    for (const m of seedMembers) {
-      insertMember.run(m.id, m.nama, m.no_hp, m.foto, m.id);
+    for (let i = 0; i < seedMembers.length; i++) {
+      const m = seedMembers[i];
+      const nikSample = `32770255058700${String(10 + i).padStart(2, '0')}`;
+      insertMember.run(m.id, m.nama, m.no_hp, nikSample, m.foto, m.id);
 
       const pkg = db.prepare('SELECT * FROM packages WHERE id_paket = ?').get(m.paket_id);
       const start = new Date(today);

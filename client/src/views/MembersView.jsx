@@ -186,9 +186,12 @@ export default function MembersView({ initialFilter = 'Semua', onNavigateToRegis
                         </div>
                       </td>
 
-                      {/* ID */}
-                      <td className="py-3 px-4 font-mono font-bold text-slate-700">
-                        {m.id_member}
+                      {/* ID & NIK */}
+                      <td className="py-3 px-4 font-mono">
+                        <span className="font-bold text-slate-800 block">{m.id_member}</span>
+                        {m.nik && (
+                          <span className="text-[10px] text-slate-400 block tracking-tight">NIK: {m.nik}</span>
+                        )}
                       </td>
 
                       {/* Phone */}

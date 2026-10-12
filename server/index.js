@@ -187,6 +187,7 @@ app.get('/api/members', (req, res) => {
       detailedMembers = detailedMembers.filter(m => 
         m.nama.toLowerCase().includes(q) ||
         m.no_hp.toLowerCase().includes(q) ||
+        (m.nik && m.nik.toLowerCase().includes(q)) ||
         m.id_member.toLowerCase().includes(q) ||
         m.qr_code.toLowerCase().includes(q)
       );
@@ -251,18 +252,24 @@ app.get('/api/members/:id', (req, res) => {
   }
 });
 
-// Auto-generate ID Member (MEM-000124)
+// Auto-generate ID Member (FM-YYYY-00001 format matching FORMA standard)
 function generateNextMemberId() {
+  const currentYear = new Date().getFullYear();
   const last = db.prepare('SELECT id_member FROM members ORDER BY rowid DESC LIMIT 1').get();
   if (!last || !last.id_member) {
-    return 'MEM-000101';
+    return `FM-${currentYear}-00001`;
   }
-  const match = last.id_member.match(/MEM-(\d+)/);
-  if (match) {
-    const num = parseInt(match[1], 10) + 1;
-    return `MEM-${String(num).padStart(6, '0')}`;
+  const fmMatch = last.id_member.match(/FM-(\d{4})-(\d+)/);
+  if (fmMatch) {
+    const num = parseInt(fmMatch[2], 10) + 1;
+    return `FM-${fmMatch[1]}-${String(num).padStart(5, '0')}`;
   }
-  return 'MEM-000101';
+  const memMatch = last.id_member.match(/MEM-(\d+)/);
+  if (memMatch) {
+    const num = parseInt(memMatch[1], 10) + 1;
+    return `FM-${currentYear}-${String(num).padStart(5, '0')}`;
+  }
+  return `FM-${currentYear}-00001`;
 }
 
 // Register Member Baru (< 2 Menit workflow)
@@ -271,6 +278,7 @@ app.post('/api/members', upload.single('foto_file'), async (req, res) => {
     const {
       nama,
       no_hp,
+      nik,
       paket_id,
       tanggal_mulai,
       metode_bayar,
@@ -312,9 +320,9 @@ app.post('/api/members', upload.single('foto_file'), async (req, res) => {
 
     // Insert Member
     db.prepare(`
-      INSERT INTO members (id_member, nama, no_hp, foto, qr_code)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(newId, nama.trim(), no_hp.trim(), fotoUrl, qrCode);
+      INSERT INTO members (id_member, nama, no_hp, nik, foto, qr_code)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(newId, nama.trim(), no_hp.trim(), nik ? nik.trim() : null, fotoUrl, qrCode);
 
     // Insert Membership
     db.prepare(`

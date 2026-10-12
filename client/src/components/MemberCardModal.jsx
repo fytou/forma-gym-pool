@@ -1,5 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { Printer, X, Download, ShieldCheck, Dumbbell, Waves, FileDown, Image as ImageIcon, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { 
+  Printer, X, Download, ShieldCheck, Dumbbell, Waves, Coffee, 
+  MessageCircle, Image as ImageIcon, RefreshCw, CheckCircle2 
+} from 'lucide-react';
 import { formatDateIndo, getQrCode } from '../utils/api';
 
 // Helper to convert base64 dataURL to Blob safely
@@ -19,11 +22,11 @@ function dataURLtoBlob(dataurl) {
   }
 }
 
-// Render full card on any HTML5 canvas (2x sharp, accurate CR80 ID proportions)
+// Render full card on any HTML5 canvas (Luxury Black & Gold Theme matching FORMA standard)
 function renderCardToCanvas(canvas, member, paketNama, paketFasilitas, validUntil, photoEl, qrEl) {
   const scale = 2; // 2x sharp HD resolution
-  const w = 420 * scale;
-  const h = 250 * scale;
+  const w = 540 * scale;
+  const h = 320 * scale;
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d');
@@ -31,17 +34,14 @@ function renderCardToCanvas(canvas, member, paketNama, paketFasilitas, validUnti
   ctx.clearRect(0, 0, w, h);
 
   // Helper to draw stylish vector initials avatar (100% clean, never taints canvas)
-  const drawAvatar = () => {
-    const px = 24 * scale;
-    const py = 74 * scale;
-    const ps = 70 * scale;
-    ctx.fillStyle = '#0f172a';
+  const drawAvatar = (px, py, pw, ph) => {
+    ctx.fillStyle = '#141414';
     if (ctx.roundRect) {
       ctx.beginPath();
-      ctx.roundRect(px, py, ps, ps, 12 * scale);
+      ctx.roundRect(px, py, pw, ph, 8 * scale);
       ctx.fill();
     } else {
-      ctx.fillRect(px, py, ps, ps);
+      ctx.fillRect(px, py, pw, ph);
     }
     const initials = (member.nama || 'M')
       .split(' ')
@@ -49,206 +49,284 @@ function renderCardToCanvas(canvas, member, paketNama, paketFasilitas, validUnti
       .join('')
       .substring(0, 2)
       .toUpperCase();
-    ctx.fillStyle = '#34d399';
-    ctx.font = `bold ${24 * scale}px "Plus Jakarta Sans", sans-serif`;
+    ctx.fillStyle = '#c5a059';
+    ctx.font = `bold ${22 * scale}px "Plus Jakarta Sans", sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(initials, px + ps / 2, py + ps / 2 + 8 * scale);
+    ctx.fillText(initials, px + pw / 2, py + ph / 2 + 8 * scale);
     ctx.textAlign = 'left';
   };
 
-  // 1. Background gradient
-  const grad = ctx.createLinearGradient(0, 0, w, h);
-  grad.addColorStop(0, '#020617'); // slate-950
-  grad.addColorStop(0.5, '#0f172a'); // slate-900
-  grad.addColorStop(1, '#022c22'); // emerald-950
-  ctx.fillStyle = grad;
-
+  // 1. Solid matte luxury black background
+  ctx.fillStyle = '#0c0c0c';
   if (ctx.roundRect) {
     ctx.beginPath();
-    ctx.roundRect(0, 0, w, h, 20 * scale);
+    ctx.roundRect(0, 0, w, h, 16 * scale);
     ctx.fill();
   } else {
     ctx.fillRect(0, 0, w, h);
   }
 
-  // Border
-  ctx.strokeStyle = '#334155';
+  // Outer gold border
+  ctx.strokeStyle = '#c5a059';
   ctx.lineWidth = 2 * scale;
-  ctx.stroke();
-
-  // Glow circles
-  const radGlow1 = ctx.createRadialGradient(w - 20 * scale, 20 * scale, 10 * scale, w - 20 * scale, 20 * scale, 100 * scale);
-  radGlow1.addColorStop(0, 'rgba(16, 185, 129, 0.15)');
-  radGlow1.addColorStop(1, 'rgba(16, 185, 129, 0)');
-  ctx.fillStyle = radGlow1;
-  ctx.fillRect(0, 0, w, h);
-
-  // 2. Header
-  // Logo icon box
-  ctx.fillStyle = '#10b981';
   if (ctx.roundRect) {
     ctx.beginPath();
-    ctx.roundRect(24 * scale, 20 * scale, 24 * scale, 24 * scale, 6 * scale);
-    ctx.fill();
-  } else {
-    ctx.fillRect(24 * scale, 20 * scale, 24 * scale, 24 * scale);
+    ctx.roundRect(0, 0, w, h, 16 * scale);
+    ctx.stroke();
   }
 
-  // Dumbbell icon in logo box
-  ctx.fillStyle = '#020617';
-  ctx.fillRect(29 * scale, 28 * scale, 14 * scale, 8 * scale);
-  ctx.fillStyle = '#10b981';
-  ctx.fillRect(34 * scale, 25 * scale, 4 * scale, 14 * scale);
+  // Inner gold border line (inset by 8 * scale)
+  ctx.strokeStyle = 'rgba(197, 160, 89, 0.65)';
+  ctx.lineWidth = 1 * scale;
+  const inset = 8 * scale;
+  if (ctx.roundRect) {
+    ctx.beginPath();
+    ctx.roundRect(inset, inset, w - inset * 2, h - inset * 2, 10 * scale);
+    ctx.stroke();
+  }
+
+  // Subtle concentric circle watermark lines (bottom-right)
+  ctx.save();
+  ctx.strokeStyle = 'rgba(197, 160, 89, 0.1)';
+  ctx.lineWidth = 1 * scale;
+  for (let r = 80; r <= 240; r += 50) {
+    ctx.beginPath();
+    ctx.arc(w - 20 * scale, h - 20 * scale, r * scale, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Vertical subtle divider between Left Logo and Right Info
+  ctx.strokeStyle = 'rgba(197, 160, 89, 0.35)';
+  ctx.lineWidth = 1 * scale;
+  ctx.beginPath();
+  ctx.moveTo(215 * scale, 18 * scale);
+  ctx.lineTo(215 * scale, 274 * scale);
+  ctx.stroke();
+
+  // ==========================================
+  // LEFT COLUMN: FORMA LOGO & BRANDING
+  // ==========================================
+  const logoCenterX = 112 * scale;
+
+  // Draw Stylized "F" mark in gold
+  const fx = 75 * scale;
+  const fy = 35 * scale;
+  const fw = 22 * scale;
+  const fh = 86 * scale;
+
+  // Stem of "F"
+  ctx.fillStyle = '#c5a059';
+  if (ctx.roundRect) {
+    ctx.beginPath();
+    ctx.roundRect(fx, fy, fw, fh, 4 * scale);
+    ctx.fill();
+    // Top bar
+    ctx.beginPath();
+    ctx.roundRect(fx, fy, 68 * scale, 17 * scale, 4 * scale);
+    ctx.fill();
+    // Middle bar
+    ctx.beginPath();
+    ctx.roundRect(fx, fy + 34 * scale, 46 * scale, 14 * scale, 4 * scale);
+    ctx.fill();
+  } else {
+    ctx.fillRect(fx, fy, fw, fh);
+    ctx.fillRect(fx, fy, 68 * scale, 17 * scale);
+    ctx.fillRect(fx, fy + 34 * scale, 46 * scale, 14 * scale);
+  }
+
+  // 3 Icon cutout boxes inside the stem
+  const drawCutout = (cy, type) => {
+    const cx = fx + 3 * scale;
+    const cw = 16 * scale;
+    const ch = 13 * scale;
+    ctx.fillStyle = '#0c0c0c';
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(cx, cy, cw, ch, 2 * scale);
+      ctx.fill();
+    } else {
+      ctx.fillRect(cx, cy, cw, ch);
+    }
+    // Icon lines in gold
+    ctx.strokeStyle = '#c5a059';
+    ctx.lineWidth = 1.2 * scale;
+    if (type === 'gym') {
+      ctx.beginPath();
+      ctx.moveTo(cx + 3 * scale, cy + ch / 2);
+      ctx.lineTo(cx + cw - 3 * scale, cy + ch / 2);
+      ctx.moveTo(cx + 4 * scale, cy + 3 * scale);
+      ctx.lineTo(cx + 4 * scale, cy + ch - 3 * scale);
+      ctx.moveTo(cx + cw - 4 * scale, cy + 3 * scale);
+      ctx.lineTo(cx + cw - 4 * scale, cy + ch - 3 * scale);
+      ctx.stroke();
+    } else if (type === 'cafe') {
+      ctx.beginPath();
+      ctx.rect(cx + 3 * scale, cy + 5 * scale, cw - 6 * scale, 5 * scale);
+      ctx.stroke();
+    } else if (type === 'pool') {
+      ctx.beginPath();
+      ctx.moveTo(cx + 2 * scale, cy + 6 * scale);
+      ctx.lineTo(cx + cw - 2 * scale, cy + 6 * scale);
+      ctx.moveTo(cx + 2 * scale, cy + 9 * scale);
+      ctx.lineTo(cx + cw - 2 * scale, cy + 9 * scale);
+      ctx.stroke();
+    }
+  };
+
+  drawCutout(fy + 5 * scale, 'gym');
+  drawCutout(fy + 22 * scale, 'cafe');
+  drawCutout(fy + 39 * scale, 'pool');
+
+  // Text below Logo
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#c5a059';
+  ctx.font = `bold ${16 * scale}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillText('F O R M A', logoCenterX, 150 * scale);
+
+  ctx.font = `bold ${8.5 * scale}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillText('— GYM • CAFE • POOL —', logoCenterX, 168 * scale);
+
+  ctx.fillStyle = '#dfc185';
+  ctx.font = `italic ${7.5 * scale}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillText('— KUAT, FOKUS, SEGAR SETIAP HARI —', logoCenterX, 184 * scale);
+  ctx.textAlign = 'left';
+
+  // ==========================================
+  // RIGHT COLUMN: MEMBERSHIP DETAILS
+  // ==========================================
+  const rx = 235 * scale;
+
+  // Header Title (GYM MEMBERSHIP / ALL ACCESS MEMBERSHIP)
+  const headerTitle = paketFasilitas === 'Gym+Pool'
+    ? 'ALL ACCESS MEMBERSHIP'
+    : paketFasilitas === 'Pool'
+    ? 'POOL MEMBERSHIP'
+    : 'GYM MEMBERSHIP';
+
+  ctx.fillStyle = '#c5a059';
+  ctx.font = `bold ${13 * scale}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillText(headerTitle, rx, 38 * scale);
+
+  // Underline
+  ctx.strokeStyle = '#c5a059';
+  ctx.lineWidth = 1 * scale;
+  ctx.beginPath();
+  ctx.moveTo(rx, 46 * scale);
+  ctx.lineTo(w - 24 * scale, 46 * scale);
+  ctx.stroke();
+
+  // Member Name
+  ctx.fillStyle = '#c5a059';
+  ctx.font = `bold ${8.5 * scale}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillText('MEMBER NAME', rx, 66 * scale);
 
   ctx.fillStyle = '#ffffff';
   ctx.font = `bold ${15 * scale}px "Plus Jakarta Sans", sans-serif`;
-  ctx.fillText('FORMA', 56 * scale, 35 * scale);
+  ctx.fillText(member.nama.toUpperCase(), rx, 86 * scale);
 
-  // "MEMBER PASS" pill badge
-  ctx.fillStyle = '#34d399';
-  if (ctx.roundRect) {
-    ctx.beginPath();
-    ctx.roundRect(120 * scale, 23 * scale, 84 * scale, 16 * scale, 4 * scale);
-    ctx.fill();
-  } else {
-    ctx.fillRect(120 * scale, 23 * scale, 84 * scale, 16 * scale);
-  }
-  ctx.fillStyle = '#020617';
-  ctx.font = `bold ${9 * scale}px "Plus Jakarta Sans", sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.fillText('MEMBER PASS', 162 * scale, 35 * scale);
-  ctx.textAlign = 'left';
+  // Member ID
+  ctx.fillStyle = '#c5a059';
+  ctx.font = `bold ${8.5 * scale}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillText('MEMBER ID', rx, 108 * scale);
 
-  ctx.fillStyle = '#94a3b8';
-  ctx.font = `${8 * scale}px "Plus Jakarta Sans", sans-serif`;
-  ctx.fillText('SMART SYSTEM FOR BUSINESS', 56 * scale, 47 * scale);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold ${13 * scale}px "JetBrains Mono", monospace`;
+  ctx.fillText(member.id_member, rx, 126 * scale);
 
-  // Facility Badge (Top Right)
-  const badgeText = paketFasilitas === 'Gym+Pool' ? 'ALL ACCESS' : paketFasilitas === 'Pool' ? 'POOL ONLY' : 'GYM ONLY';
-  ctx.fillStyle = '#0f172a';
-  if (ctx.roundRect) {
-    ctx.beginPath();
-    ctx.roundRect(w - 128 * scale, 18 * scale, 104 * scale, 24 * scale, 12 * scale);
-    ctx.fill();
-    ctx.strokeStyle = '#059669';
-    ctx.lineWidth = 1 * scale;
-    ctx.stroke();
-  } else {
-    ctx.fillRect(w - 128 * scale, 18 * scale, 104 * scale, 24 * scale);
-  }
-  ctx.fillStyle = '#34d399';
-  ctx.font = `bold ${9 * scale}px "Plus Jakarta Sans", sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.fillText(badgeText, w - 76 * scale, 34 * scale);
-  ctx.textAlign = 'left';
+  // NIK / No. KTP
+  ctx.fillStyle = '#c5a059';
+  ctx.font = `bold ${8.5 * scale}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillText('NO. KTP / NIK:', rx, 145 * scale);
 
-  // Divider
-  ctx.strokeStyle = '#1e293b';
-  ctx.lineWidth = 1 * scale;
-  ctx.beginPath();
-  ctx.moveTo(24 * scale, 58 * scale);
-  ctx.lineTo(w - 24 * scale, 58 * scale);
-  ctx.stroke();
+  ctx.fillStyle = '#f1f5f9';
+  ctx.font = `${9.5 * scale}px "JetBrains Mono", monospace`;
+  ctx.fillText(member.nik || '-', rx + 80 * scale, 145 * scale);
 
-  // 3. Photo or Avatar
-  const px = 24 * scale;
-  const py = 74 * scale;
-  const ps = 70 * scale;
+  // Photo, QR, and Plan Section
+  const py = 160 * scale;
+  const pw = 66 * scale;
+  const ph = 76 * scale;
 
+  // 1. Member Photo
   if (photoEl) {
     try {
       ctx.save();
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(px, py, ps, ps, 12 * scale);
-      else ctx.rect(px, py, ps, ps);
+      if (ctx.roundRect) ctx.roundRect(rx, py, pw, ph, 8 * scale);
+      else ctx.rect(rx, py, pw, ph);
       ctx.clip();
-      ctx.drawImage(photoEl, px, py, ps, ps);
+      ctx.drawImage(photoEl, rx, py, pw, ph);
       ctx.restore();
     } catch (e) {
-      drawAvatar();
+      drawAvatar(rx, py, pw, ph);
     }
   } else {
-    drawAvatar();
+    drawAvatar(rx, py, pw, ph);
   }
 
-  // Photo border
-  ctx.strokeStyle = '#059669';
+  // Photo border in gold
+  ctx.strokeStyle = '#c5a059';
   ctx.lineWidth = 1.5 * scale;
   if (ctx.roundRect) {
     ctx.beginPath();
-    ctx.roundRect(px, py, ps, ps, 12 * scale);
+    ctx.roundRect(rx, py, pw, ph, 8 * scale);
     ctx.stroke();
   }
 
-  // 4. Member Details
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `bold ${16 * scale}px "Plus Jakarta Sans", sans-serif`;
-  ctx.fillText(member.nama, 108 * scale, 94 * scale);
+  // 2. QR Code Box
+  const qrx = rx + pw + 10 * scale;
+  const qrs = 76 * scale;
 
-  // Member ID pill
-  ctx.fillStyle = '#0f172a';
+  ctx.fillStyle = '#ffffff';
   if (ctx.roundRect) {
     ctx.beginPath();
-    ctx.roundRect(108 * scale, 102 * scale, 100 * scale, 20 * scale, 4 * scale);
+    ctx.roundRect(qrx, py, qrs, qrs, 8 * scale);
     ctx.fill();
-    ctx.strokeStyle = '#059669';
-    ctx.lineWidth = 1 * scale;
-    ctx.stroke();
   } else {
-    ctx.fillRect(108 * scale, 102 * scale, 100 * scale, 20 * scale);
+    ctx.fillRect(qrx, py, qrs, qrs);
   }
-  ctx.fillStyle = '#34d399';
-  ctx.font = `bold ${11 * scale}px "JetBrains Mono", monospace`;
-  ctx.textAlign = 'center';
-  ctx.fillText(member.id_member, 158 * scale, 116 * scale);
-  ctx.textAlign = 'left';
 
-  // Package & Phone
-  ctx.fillStyle = '#cbd5e1';
-  ctx.font = `${10 * scale}px "Plus Jakarta Sans", sans-serif`;
-  ctx.fillText(`Paket: ${paketNama}`, 108 * scale, 136 * scale);
-  ctx.fillText(`HP: ${member.no_hp}`, 108 * scale, 152 * scale);
-
-  // 5. QR Code Box
   if (qrEl) {
     try {
-      ctx.fillStyle = '#ffffff';
-      if (ctx.roundRect) {
-        ctx.beginPath();
-        ctx.roundRect(w - 100 * scale, 74 * scale, 76 * scale, 76 * scale, 10 * scale);
-        ctx.fill();
-      } else {
-        ctx.fillRect(w - 100 * scale, 74 * scale, 76 * scale, 76 * scale);
-      }
-      ctx.drawImage(qrEl, w - 96 * scale, 78 * scale, 68 * scale, 68 * scale);
+      ctx.drawImage(qrEl, qrx + 3 * scale, py + 3 * scale, qrs - 6 * scale, qrs - 6 * scale);
     } catch (e) {}
   }
 
-  // QR Label
-  ctx.fillStyle = '#94a3b8';
-  ctx.font = `${8 * scale}px "JetBrains Mono", monospace`;
-  ctx.textAlign = 'center';
-  ctx.fillText('SCAN MASUK', w - 62 * scale, 162 * scale);
-  ctx.textAlign = 'left';
+  // 3. Plan & Validity details
+  const plx = qrx + qrs + 12 * scale;
+  ctx.fillStyle = '#c5a059';
+  ctx.font = `bold ${8 * scale}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillText('PAKET / PLAN:', plx, py + 16 * scale);
 
-  // 6. Footer
-  ctx.strokeStyle = '#1e293b';
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold ${10.5 * scale}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillText(paketNama.toUpperCase(), plx, py + 32 * scale);
+
+  ctx.fillStyle = '#c5a059';
+  ctx.font = `bold ${8 * scale}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillText('MASA BERLAKU:', plx, py + 52 * scale);
+
+  ctx.fillStyle = '#10b981';
+  ctx.font = `bold ${10.5 * scale}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillText(validUntil, plx, py + 68 * scale);
+
+  // ==========================================
+  // FOOTER STRIP
+  // ==========================================
+  ctx.strokeStyle = 'rgba(197, 160, 89, 0.6)';
+  ctx.lineWidth = 1 * scale;
   ctx.beginPath();
-  ctx.moveTo(24 * scale, 210 * scale);
-  ctx.lineTo(w - 24 * scale, 210 * scale);
+  ctx.moveTo(24 * scale, 274 * scale);
+  ctx.lineTo(w - 24 * scale, 274 * scale);
   ctx.stroke();
 
-  ctx.fillStyle = '#94a3b8';
-  ctx.font = `${9 * scale}px "Plus Jakarta Sans", sans-serif`;
-  ctx.fillText('Berlaku s/d: ', 24 * scale, 228 * scale);
-  ctx.fillStyle = '#34d399';
-  ctx.font = `bold ${9 * scale}px "Plus Jakarta Sans", sans-serif`;
-  ctx.fillText(validUntil, 84 * scale, 228 * scale);
+  ctx.fillStyle = '#c5a059';
+  ctx.font = `bold ${8.5 * scale}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillText('GYM  |  CAFE  |  POOL', 28 * scale, 296 * scale);
 
-  ctx.fillStyle = '#64748b';
-  ctx.font = `${8 * scale}px "JetBrains Mono", monospace`;
   ctx.textAlign = 'right';
-  ctx.fillText('FORMA-SECURE-ACCESS', w - 24 * scale, 228 * scale);
+  ctx.fillText('THANK YOU FOR BEING A PART OF FORMA', w - 28 * scale, 296 * scale);
 }
 
 export default function MemberCardModal({ member, qrImage, onClose }) {
@@ -262,8 +340,47 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
   const paketFasilitas = member.membership?.paket_fasilitas || 'Gym';
   const validUntil = member.membership?.tanggal_berakhir ? formatDateIndo(member.membership.tanggal_berakhir) : '-';
 
+  const headerTitle = paketFasilitas === 'Gym+Pool'
+    ? 'ALL ACCESS MEMBERSHIP'
+    : paketFasilitas === 'Pool'
+    ? 'POOL MEMBERSHIP'
+    : 'GYM MEMBERSHIP';
+
   const handlePrint = () => {
     window.print();
+  };
+
+  // Kirim Kartu & Pesan Hangat Resmi via WhatsApp Langsung
+  const handleSendWhatsApp = () => {
+    if (!member.no_hp) {
+      alert('Nomor telepon / WhatsApp member belum terdaftar.');
+      return;
+    }
+
+    let phone = member.no_hp.replace(/\D/g, '');
+    if (phone.startsWith('0')) {
+      phone = '62' + phone.substring(1);
+    } else if (phone.startsWith('8')) {
+      phone = '62' + phone;
+    }
+
+    const message = 
+`Halo Kak *${member.nama}*, selamat bergabung di *FORMA (Gym, Cafe & Pool)*! 🏋️‍♂️☕🏊‍♂️
+
+Berikut adalah rincian data keanggotaan resmi Anda:
+👤 *Nama:* ${member.nama}
+🆔 *ID Member:* ${member.id_member}
+🪪 *No. KTP / NIK:* ${member.nik || '-'}
+📦 *Paket:* ${paketNama}
+📅 *Masa Berlaku:* ${validUntil}
+
+Kartu fisik & QR Code Anda telah aktif dan dapat langsung digunakan untuk scan masuk di gate check-in FORMA.
+
+_Kuat, Fokus, Segar Setiap Hari._
+Terima kasih telah menjadi bagian dari keluarga besar FORMA! 🙏`;
+
+    const waUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
   };
 
   const handleDownloadQr = () => {
@@ -419,13 +536,15 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
   };
 
   return (
-    <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="modal-box bg-white rounded-2xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-200">
+    <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4 overflow-y-auto">
+      <div className="modal-box bg-[#131418] rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-800 overflow-hidden animate-in fade-in zoom-in duration-200 text-white">
         {/* Modal Header */}
-        <div className="no-print bg-slate-900 px-6 py-4 flex items-center justify-between text-white border-b border-slate-800">
-          <div className="flex items-center space-x-2">
-            <ShieldCheck className="w-5 h-5 text-emerald-400" />
-            <h3 className="font-bold text-base tracking-wide">Kartu Fisik Member FORMA</h3>
+        <div className="no-print bg-[#0c0d10] px-6 py-4 flex items-center justify-between text-white border-b border-slate-800">
+          <div className="flex items-center space-x-2.5">
+            <ShieldCheck className="w-5 h-5 text-[#c5a059]" />
+            <h3 className="font-bold text-base tracking-wide text-slate-100">
+              Kartu Member FORMA (Barcode & QR)
+            </h3>
           </div>
           <button
             onClick={onClose}
@@ -436,137 +555,191 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
         </div>
 
         {/* Modal Body / Print Wrapper */}
-        <div className="print-card-wrapper p-6 bg-slate-100 flex flex-col items-center">
-          <p className="no-print text-xs text-slate-500 mb-4 text-center max-w-md">
-            Gunakan tombol <strong>Cetak / Simpan PDF</strong> untuk cetak printer / download PDF, atau tombol <strong>Download Gambar (PNG)</strong> untuk menyimpan kartu fisik ke galeri / WhatsApp member.
-          </p>
-
-          {/* PRINTABLE CARD AREA (Standard CR80 ID Card Dimensions) */}
+        <div className="print-card-wrapper p-6 bg-[#16171d] flex flex-col items-center">
+          {/* PRINTABLE CARD AREA (Exact 1:1 Black & Gold Luxury ID Theme) */}
           <div 
             ref={cardRef}
-            className="print-card-area w-[420px] h-[250px] bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white rounded-2xl shadow-xl border border-slate-800 p-5 flex flex-col justify-between relative overflow-hidden select-none"
+            className="print-card-area w-[540px] h-[320px] bg-[#0c0c0c] text-white rounded-2xl border-[1.5px] border-[#c5a059] p-2 relative overflow-hidden select-none flex-shrink-0 shadow-2xl"
           >
-            {/* Background design elements */}
-            <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none"></div>
-            <div className="absolute -bottom-10 -left-10 w-36 h-36 rounded-full bg-teal-500/10 blur-xl pointer-events-none"></div>
-            
-            {/* Card Header */}
-            <div className="flex items-center justify-between relative z-10 border-b border-slate-800/80 pb-2.5">
-              <div className="flex items-center space-x-2">
-                <div className="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center text-slate-950 font-bold">
-                  <Dumbbell className="w-4 h-4" />
+            {/* Inner Gold Border Inset */}
+            <div className="w-full h-full rounded-xl border border-[#c5a059]/65 p-3.5 flex flex-col justify-between relative overflow-hidden">
+              {/* Concentric Watermark in background */}
+              <div className="absolute -right-20 -bottom-20 w-72 h-72 rounded-full border border-[#c5a059]/15 pointer-events-none"></div>
+              <div className="absolute -right-10 -bottom-10 w-52 h-52 rounded-full border border-[#c5a059]/15 pointer-events-none"></div>
+
+              {/* Main Content: Left Logo & Right Info */}
+              <div className="flex items-stretch flex-1">
+                {/* LEFT: FORMA LOGO */}
+                <div className="w-[38%] flex flex-col items-center justify-center border-r border-[#c5a059]/35 pr-3">
+                  {/* Stylized F Mark */}
+                  <div className="w-16 h-20 relative flex items-center justify-center">
+                    <svg viewBox="0 0 100 120" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path
+                        d="M20 12 C20 8 24 5 28 5 H86 C91 5 95 9 95 14 C95 19 91 23 86 23 H38 V48 H74 C79 48 83 52 83 57 C83 62 79 66 74 66 H38 V110 C38 114 34 117 30 117 C25 117 20 114 20 110 V12 Z"
+                        fill="#c5a059"
+                      />
+                      {/* 3 icons stacked inside the stem */}
+                      <rect x="23" y="10" width="13" height="11" rx="2" fill="#0c0c0c" />
+                      <path d="M25 15.5 H34 M25 13.5 V17.5 M34 13.5 V17.5" stroke="#c5a059" strokeWidth="1.2" strokeLinecap="round" />
+                      
+                      <rect x="23" y="27" width="13" height="11" rx="2" fill="#0c0c0c" />
+                      <path d="M25.5 31.5 H31.5 C32 31.5 32.5 32 32.5 32.5 V34.5 C32.5 36 31 36.5 28.5 36.5 C26 36.5 24.5 36 24.5 34.5 V32.5 C24.5 32 25 31.5 25.5 31.5 Z M32.5 32.5 H34 C34.5 32.5 34.8 33 34.5 33.5 C34.2 34 33.8 34.2 32.5 34.2" stroke="#c5a059" strokeWidth="0.9" strokeLinecap="round" strokeLinejoin="round" />
+
+                      <rect x="23" y="44" width="13" height="11" rx="2" fill="#0c0c0c" />
+                      <path d="M25 48 C27 47 29 49 31 48 C33 47 34 48 34 48 M25 51 C27 50 29 52 31 51 C33 50 34 51 34 51" stroke="#c5a059" strokeWidth="1" strokeLinecap="round" />
+                    </svg>
+                  </div>
+
+                  <span className="font-extrabold text-[15px] tracking-[0.25em] text-[#c5a059] uppercase mt-1">
+                    FORMA
+                  </span>
+                  <span className="text-[8px] tracking-[0.2em] text-[#c5a059] uppercase font-semibold">
+                    — GYM • CAFE • POOL —
+                  </span>
+                  <span className="text-[7px] tracking-[0.08em] text-[#dfc185] italic mt-0.5 font-light">
+                    — KUAT, FOKUS, SEGAR SETIAP HARI —
+                  </span>
                 </div>
-                <div>
-                  <div className="flex items-center space-x-1.5">
-                    <span className="font-extrabold text-sm tracking-widest text-white">FORMA</span>
-                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-400 text-slate-950 uppercase tracking-wider">
-                      MEMBER PASS
+
+                {/* RIGHT: MEMBER DETAILS */}
+                <div className="w-[62%] pl-4 flex flex-col justify-between">
+                  {/* Top Header */}
+                  <div className="border-b border-[#c5a059]/70 pb-1">
+                    <h3 className="text-xs font-black tracking-widest text-[#c5a059] uppercase">
+                      {headerTitle}
+                    </h3>
+                  </div>
+
+                  {/* Member Name */}
+                  <div className="mt-1">
+                    <span className="text-[8px] font-bold tracking-widest text-[#c5a059] uppercase block">
+                      MEMBER NAME
                     </span>
+                    <h4 className="text-sm font-black text-white uppercase tracking-tight leading-tight line-clamp-1">
+                      {member.nama}
+                    </h4>
                   </div>
-                  <p className="text-[8px] text-slate-400 tracking-wider">SMART SYSTEM FOR BUSINESS</p>
+
+                  {/* Member ID & NIK */}
+                  <div className="mt-1">
+                    <span className="text-[8px] font-bold tracking-widest text-[#c5a059] uppercase block">
+                      MEMBER ID
+                    </span>
+                    <div className="font-mono text-xs font-extrabold text-white tracking-wider">
+                      {member.id_member}
+                    </div>
+                    <div className="flex items-center space-x-2 text-[9px] mt-0.5">
+                      <span className="text-[#c5a059] font-bold">NO. KTP / NIK:</span>
+                      <span className="font-mono text-slate-200">{member.nik || '-'}</span>
+                    </div>
+                  </div>
+
+                  {/* Photo, QR Code & Plan */}
+                  <div className="flex items-center space-x-2.5 mt-2">
+                    {/* Photo */}
+                    <div className="w-14 h-16 rounded-lg overflow-hidden border-[1.5px] border-[#c5a059] bg-[#141414] flex-shrink-0 shadow">
+                      <img
+                        src={member.foto || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200'}
+                        alt={member.nama}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.src = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200';
+                        }}
+                      />
+                    </div>
+
+                    {/* QR Code */}
+                    <div className="w-16 h-16 bg-white rounded-lg p-1 flex items-center justify-center flex-shrink-0 shadow border border-slate-300">
+                      {qrImage ? (
+                        <img src={qrImage} alt="QR Code" className="w-full h-full object-contain" />
+                      ) : (
+                        <div className="w-full h-full bg-slate-200 animate-pulse rounded"></div>
+                      )}
+                    </div>
+
+                    {/* Plan & Validity */}
+                    <div className="flex-1 space-y-1 text-left pl-1">
+                      <div>
+                        <span className="text-[7.5px] font-bold tracking-wider text-[#c5a059] block uppercase">
+                          PAKET / PLAN:
+                        </span>
+                        <span className="text-[10px] font-black text-white block uppercase leading-tight line-clamp-1">
+                          {paketNama}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[7.5px] font-bold tracking-wider text-[#c5a059] block uppercase">
+                          MASA BERLAKU:
+                        </span>
+                        <span className="text-[10.5px] font-black text-emerald-400 block tracking-tight">
+                          {validUntil}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800/80 text-emerald-400 border border-emerald-500/30">
-                {paketFasilitas === 'Gym+Pool' ? (
-                  <>
-                    <Dumbbell className="w-3 h-3" />
-                    <span>+</span>
-                    <Waves className="w-3 h-3" />
-                    <span className="ml-0.5 font-bold">ALL ACCESS</span>
-                  </>
-                ) : paketFasilitas === 'Pool' ? (
-                  <>
-                    <Waves className="w-3 h-3" />
-                    <span className="font-bold">POOL ONLY</span>
-                  </>
-                ) : (
-                  <>
-                    <Dumbbell className="w-3 h-3" />
-                    <span className="font-bold">GYM ONLY</span>
-                  </>
-                )}
+              {/* Bottom Footer Strip */}
+              <div className="pt-1.5 border-t border-[#c5a059]/60 flex items-center justify-between text-[8px] tracking-widest text-[#c5a059] uppercase font-bold mt-2">
+                <span>GYM  |  CAFE  |  POOL</span>
+                <span>THANK YOU FOR BEING A PART OF FORMA</span>
               </div>
             </div>
+          </div>
 
-            {/* Card Content: Foto, Info & QR */}
-            <div className="flex items-center justify-between my-2 relative z-10">
-              <div className="flex items-center space-x-3.5">
-                {/* Member photo */}
-                <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-emerald-500/60 shadow-md bg-slate-800 flex-shrink-0">
-                  <img
-                    src={member.foto || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200'}
-                    alt={member.nama}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.src = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200';
-                    }}
-                  />
-                </div>
-
-                {/* Member details */}
-                <div className="space-y-1">
-                  <h4 className="font-bold text-base text-white tracking-tight leading-tight line-clamp-1">
-                    {member.nama}
-                  </h4>
-                  <div className="inline-block bg-slate-800/90 text-emerald-300 font-mono text-xs px-2 py-0.5 rounded border border-emerald-500/20 font-bold tracking-wider">
-                    {member.id_member}
-                  </div>
-                  <div className="text-[10px] text-slate-300">
-                    <span className="text-slate-400">Paket:</span> <span className="font-medium text-slate-200">{paketNama}</span>
-                  </div>
-                  <div className="text-[10px] text-slate-300">
-                    <span className="text-slate-400">HP:</span> {member.no_hp}
-                  </div>
-                </div>
-              </div>
-
-              {/* QR Code */}
-              <div className="flex flex-col items-center ml-2 flex-shrink-0">
-                <div className="w-20 h-20 bg-white p-1 rounded-xl shadow-md flex items-center justify-center border border-slate-300">
-                  {qrImage ? (
-                    <img src={qrImage} alt="QR Code" className="w-full h-full object-contain" />
-                  ) : (
-                    <div className="w-full h-full bg-slate-200 animate-pulse rounded"></div>
-                  )}
-                </div>
-                <span className="text-[8px] font-mono text-slate-400 mt-1 uppercase tracking-wider">
-                  Scan Masuk
-                </span>
-              </div>
+          {/* Quick Info Bar below card (Matching Client Mockup Image 2) */}
+          <div className="no-print w-[540px] mt-4 flex items-center justify-between text-xs px-1">
+            <div className="px-3 py-1.5 rounded-lg bg-slate-800/90 text-slate-300 border border-slate-700/80 font-medium">
+              Paket: <strong className="text-white font-bold">{paketNama}</strong>
             </div>
-
-            {/* Card Footer */}
-            <div className="flex items-center justify-between text-[9px] text-slate-400 pt-1.5 border-t border-slate-800/80 relative z-10">
-              <div>
-                Berlaku s/d: <strong className="text-emerald-400 font-medium">{validUntil}</strong>
-              </div>
-              <div className="text-[8px] font-mono tracking-widest text-slate-500 uppercase">
-                FORMA-SECURE-ACCESS
-              </div>
+            <div className="text-slate-400 text-xs">
+              Masa Berlaku: <strong className="text-emerald-400 font-bold">Berlaku sampai {validUntil}</strong>
             </div>
           </div>
         </div>
 
-        {/* Modal Actions */}
-        <div className="no-print px-6 py-4 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+        {/* Modal Actions (Image 2 style with WhatsApp button) */}
+        <div className="no-print px-6 py-4 bg-[#0e0f13] border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center space-x-2 w-full sm:w-auto">
             <button
               type="button"
               onClick={handleDownloadQr}
-              className="flex-1 sm:flex-initial flex items-center justify-center space-x-1.5 px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+              className="px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700 rounded-xl border border-slate-700 transition flex items-center space-x-1.5"
             >
               <Download className="w-3.5 h-3.5" />
               <span>File QR</span>
             </button>
             <button
               type="button"
+              onClick={onClose}
+              className="px-3.5 py-2 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-xl transition"
+            >
+              Tutup
+            </button>
+          </div>
+
+          {/* Main 3 Action Buttons */}
+          <div className="flex items-center space-x-2.5 w-full sm:w-auto justify-end">
+            {/* 1. Cetak Kartu */}
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="flex items-center space-x-1.5 px-4 py-2.5 text-xs font-bold text-slate-900 bg-[#dfc185] hover:bg-[#c5a059] rounded-xl shadow transition active:scale-95"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Cetak Kartu</span>
+            </button>
+
+            {/* 2. Unduh Kartu (PNG) */}
+            <button
+              type="button"
               onClick={handleDownloadCardImage}
               disabled={downloadingImage}
-              className={`flex-1 sm:flex-initial flex items-center justify-center space-x-1.5 px-3.5 py-2 text-xs font-bold rounded-lg transition disabled:opacity-50 ${
+              className={`flex items-center space-x-1.5 px-4 py-2.5 text-xs font-bold rounded-xl border transition disabled:opacity-50 ${
                 downloadSuccess
-                  ? 'bg-emerald-600 text-white'
-                  : 'text-emerald-800 hover:text-emerald-950 bg-emerald-100 hover:bg-emerald-200'
+                  ? 'bg-emerald-600 text-white border-emerald-500'
+                  : 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700'
               }`}
             >
               {downloadingImage ? (
@@ -574,27 +747,20 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
               ) : downloadSuccess ? (
                 <CheckCircle2 className="w-3.5 h-3.5 text-white" />
               ) : (
-                <ImageIcon className="w-3.5 h-3.5 text-emerald-700" />
+                <ImageIcon className="w-3.5 h-3.5 text-slate-300" />
               )}
-              <span>{downloadSuccess ? 'Tersimpan!' : 'Download Gambar (PNG)'}</span>
+              <span>{downloadSuccess ? 'Tersimpan!' : 'Unduh Kartu (PNG)'}</span>
             </button>
-          </div>
 
-          <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
+            {/* 3. Kirim ke WhatsApp */}
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition"
+              onClick={handleSendWhatsApp}
+              className="flex items-center space-x-1.5 px-4.5 py-2.5 text-xs font-black text-white bg-[#25D366] hover:bg-[#20ba59] rounded-xl shadow-lg shadow-emerald-500/20 transition active:scale-95"
+              title="Kirim ucapan selamat & rincian kartu ke WhatsApp member"
             >
-              Tutup
-            </button>
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="flex items-center space-x-2 px-5 py-2.5 text-xs font-extrabold text-slate-950 bg-emerald-500 hover:bg-emerald-400 rounded-lg shadow-md shadow-emerald-500/25 transition active:scale-95"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Cetak / Simpan PDF</span>
+              <MessageCircle className="w-4 h-4" />
+              <span>Kirim ke WhatsApp</span>
             </button>
           </div>
         </div>

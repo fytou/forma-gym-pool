@@ -20,6 +20,7 @@ export default function RegisterView({ onSuccess }) {
   const [packages, setPackages] = useState([]);
   const [nama, setNama] = useState('');
   const [noHp, setNoHp] = useState('');
+  const [nik, setNik] = useState('');
   const [selectedPkgId, setSelectedPkgId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Tunai');
@@ -174,6 +175,7 @@ export default function RegisterView({ onSuccess }) {
       const formData = new FormData();
       formData.append('nama', nama.trim());
       formData.append('no_hp', noHp.trim());
+      formData.append('nik', nik.trim());
       formData.append('paket_id', selectedPkgId);
       formData.append('tanggal_mulai', startDate);
       formData.append('metode_bayar', paymentMethod);
@@ -200,6 +202,7 @@ export default function RegisterView({ onSuccess }) {
         // Reset form
         setNama('');
         setNoHp('');
+        setNik('');
       } else {
         setError(res.message || 'Gagal mendaftarkan member');
       }
@@ -344,7 +347,24 @@ export default function RegisterView({ onSuccess }) {
                     required
                   />
                   <span className="text-[11px] text-slate-400 mt-1 block">
-                    Format nomor Indonesia aktif untuk konfirmasi keanggotaan
+                    Format nomor Indonesia aktif untuk konfirmasi keanggotaan & WhatsApp
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Nomor KTP / NIK <span className="text-slate-400 font-normal">(16 Digit)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={nik}
+                    onChange={(e) => setNik(e.target.value.replace(/\D/g, '').slice(0, 16))}
+                    placeholder="Contoh: 3277025505870024"
+                    className="w-full px-4 py-3 text-sm font-semibold rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none font-mono"
+                    maxLength={16}
+                  />
+                  <span className="text-[11px] text-slate-400 mt-1 block">
+                    Nomor Induk Kependudukan resmi untuk verifikasi kartu member
                   </span>
                 </div>
               </div>

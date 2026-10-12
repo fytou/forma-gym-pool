@@ -23,7 +23,7 @@ function dataURLtoBlob(dataurl) {
 }
 
 // Render full card on any HTML5 canvas (Luxury Black & Gold Theme matching FORMA standard)
-function renderCardToCanvas(canvas, member, paketNama, paketFasilitas, validUntil, photoEl, qrEl, logoEl) {
+function renderCardToCanvas(canvas, member, paketNama, paketFasilitas, validUntil, photoEl, qrEl) {
   const scale = 2; // 2x sharp HD resolution
   const w = 540 * scale;
   const h = 320 * scale;
@@ -105,30 +105,92 @@ function renderCardToCanvas(canvas, member, paketNama, paketFasilitas, validUnti
   ctx.stroke();
 
   // ==========================================
-  // LEFT COLUMN: OFFICIAL FORMA LOGO IMAGE
+  // LEFT COLUMN: FORMA LOGO & BRANDING
   // ==========================================
-  if (logoEl) {
-    try {
-      const logoSize = 180 * scale;
-      const lx = 18 * scale;
-      const ly = (274 * scale - logoSize) / 2 + 10 * scale;
-      ctx.drawImage(logoEl, lx, ly, logoSize, logoSize);
-    } catch (e) {
-      ctx.fillStyle = '#c5a059';
-      ctx.font = `bold ${16 * scale}px "Plus Jakarta Sans", sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText('F O R M A', 112 * scale, 150 * scale);
-      ctx.textAlign = 'left';
-    }
+  const logoCenterX = 112 * scale;
+
+  // Draw Stylized "F" mark in gold
+  const fx = 75 * scale;
+  const fy = 35 * scale;
+  const fw = 22 * scale;
+  const fh = 86 * scale;
+
+  // Stem of "F"
+  ctx.fillStyle = '#c5a059';
+  if (ctx.roundRect) {
+    ctx.beginPath();
+    ctx.roundRect(fx, fy, fw, fh, 4 * scale);
+    ctx.fill();
+    // Top bar
+    ctx.beginPath();
+    ctx.roundRect(fx, fy, 68 * scale, 17 * scale, 4 * scale);
+    ctx.fill();
+    // Middle bar
+    ctx.beginPath();
+    ctx.roundRect(fx, fy + 34 * scale, 46 * scale, 14 * scale, 4 * scale);
+    ctx.fill();
   } else {
-    ctx.fillStyle = '#c5a059';
-    ctx.font = `bold ${16 * scale}px "Plus Jakarta Sans", sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillText('F O R M A', 112 * scale, 150 * scale);
-    ctx.font = `bold ${8.5 * scale}px "Plus Jakarta Sans", sans-serif`;
-    ctx.fillText('— GYM • CAFE • POOL —', 112 * scale, 168 * scale);
-    ctx.textAlign = 'left';
+    ctx.fillRect(fx, fy, fw, fh);
+    ctx.fillRect(fx, fy, 68 * scale, 17 * scale);
+    ctx.fillRect(fx, fy + 34 * scale, 46 * scale, 14 * scale);
   }
+
+  // 3 Icon cutout boxes inside the stem
+  const drawCutout = (cy, type) => {
+    const cx = fx + 3 * scale;
+    const cw = 16 * scale;
+    const ch = 13 * scale;
+    ctx.fillStyle = '#0c0c0c';
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(cx, cy, cw, ch, 2 * scale);
+      ctx.fill();
+    } else {
+      ctx.fillRect(cx, cy, cw, ch);
+    }
+    // Icon lines in gold
+    ctx.strokeStyle = '#c5a059';
+    ctx.lineWidth = 1.2 * scale;
+    if (type === 'gym') {
+      ctx.beginPath();
+      ctx.moveTo(cx + 3 * scale, cy + ch / 2);
+      ctx.lineTo(cx + cw - 3 * scale, cy + ch / 2);
+      ctx.moveTo(cx + 4 * scale, cy + 3 * scale);
+      ctx.lineTo(cx + 4 * scale, cy + ch - 3 * scale);
+      ctx.moveTo(cx + cw - 4 * scale, cy + 3 * scale);
+      ctx.lineTo(cx + cw - 4 * scale, cy + ch - 3 * scale);
+      ctx.stroke();
+    } else if (type === 'cafe') {
+      ctx.beginPath();
+      ctx.rect(cx + 3 * scale, cy + 5 * scale, cw - 6 * scale, 5 * scale);
+      ctx.stroke();
+    } else if (type === 'pool') {
+      ctx.beginPath();
+      ctx.moveTo(cx + 2 * scale, cy + 6 * scale);
+      ctx.lineTo(cx + cw - 2 * scale, cy + 6 * scale);
+      ctx.moveTo(cx + 2 * scale, cy + 9 * scale);
+      ctx.lineTo(cx + cw - 2 * scale, cy + 9 * scale);
+      ctx.stroke();
+    }
+  };
+
+  drawCutout(fy + 5 * scale, 'gym');
+  drawCutout(fy + 22 * scale, 'cafe');
+  drawCutout(fy + 39 * scale, 'pool');
+
+  // Text below Logo
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#c5a059';
+  ctx.font = `bold ${16 * scale}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillText('F O R M A', logoCenterX, 150 * scale);
+
+  ctx.font = `bold ${8.5 * scale}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillText('— GYM • CAFE • POOL —', logoCenterX, 168 * scale);
+
+  ctx.fillStyle = '#dfc185';
+  ctx.font = `italic ${7.5 * scale}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillText('— KUAT, FOKUS, SEGAR SETIAP HARI —', logoCenterX, 184 * scale);
+  ctx.textAlign = 'left';
 
   // ==========================================
   // RIGHT COLUMN: MEMBERSHIP DETAILS
@@ -346,26 +408,13 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
       });
     }
 
-    // 3. Preload Official Logo Image
-    let logoEl = null;
-    try {
-      logoEl = await new Promise((resolve) => {
-        const img = new window.Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => resolve(null);
-        setTimeout(() => resolve(null), 1200);
-        img.src = '/logo.png';
-        if (img.complete && img.naturalWidth > 0) resolve(img);
-      });
-    } catch (e) {}
-
-    // 4. Render ke Blob (Double-buffered: canvas1 dengan foto, canvas2 dengan avatar vector)
+    // 3. Render ke Blob (Double-buffered: canvas1 dengan foto, canvas2 dengan avatar vector)
     let blob = null;
 
     if (photoEl) {
       try {
         const canvas1 = document.createElement('canvas');
-        renderCardToCanvas(canvas1, member, paketNama, paketFasilitas, validUntil, photoEl, qrEl, logoEl);
+        renderCardToCanvas(canvas1, member, paketNama, paketFasilitas, validUntil, photoEl, qrEl);
         blob = await new Promise((resolve, reject) => {
           try {
             canvas1.toBlob((b) => {
@@ -384,7 +433,7 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
 
     if (!blob) {
       const canvas2 = document.createElement('canvas');
-      renderCardToCanvas(canvas2, member, paketNama, paketFasilitas, validUntil, null, qrEl, logoEl);
+      renderCardToCanvas(canvas2, member, paketNama, paketFasilitas, validUntil, null, qrEl);
       blob = await new Promise((resolve) => {
         canvas2.toBlob((b) => resolve(b), 'image/png');
       });

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Printer, X, Download, ShieldCheck, Dumbbell, Waves, FileDown, Image, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Printer, X, Download, ShieldCheck, Dumbbell, Waves, FileDown, Image as ImageIcon, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { formatDateIndo, getQrCode } from '../utils/api';
 
 // Helper to convert base64 dataURL to Blob safely
@@ -313,7 +313,7 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
       // Preload QR image
       const qrEl = await new Promise((resolve) => {
         if (!qrSource) return resolve(null);
-        const img = new Image();
+        const img = new window.Image();
         let done = false;
         const finish = (result) => {
           if (!done) {
@@ -332,7 +332,7 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
       let photoEl = null;
       if (member.foto) {
         photoEl = await new Promise((resolve) => {
-          const img = new Image();
+          const img = new window.Image();
           img.crossOrigin = 'anonymous';
           let done = false;
           const finish = (result) => {
@@ -574,7 +574,7 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
               ) : downloadSuccess ? (
                 <CheckCircle2 className="w-3.5 h-3.5 text-white" />
               ) : (
-                <Image className="w-3.5 h-3.5 text-emerald-700" />
+                <ImageIcon className="w-3.5 h-3.5 text-emerald-700" />
               )}
               <span>{downloadSuccess ? 'Tersimpan!' : 'Download Gambar (PNG)'}</span>
             </button>

@@ -352,6 +352,41 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
     window.print();
   };
 
+  const handleDownloadQr = () => {
+    const source = qrImage || member.qr_code;
+    if (!source) return;
+    const fileName = `QR-${member.id_member}-${(member.nama || 'member').replace(/\s+/g, '_')}.png`;
+    try {
+      if (source.startsWith('data:')) {
+        const blob = dataURLtoBlob(source);
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }, 1500);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('Error downloading QR blob:', e);
+    }
+
+    const a = document.createElement('a');
+    a.href = source;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+    }, 1000);
+  };
+
   // Helper: Generasi Blob Kartu PNG Resolusi Tinggi (100% Kebal Taint)
   const generateCardBlob = async () => {
     // 1. Pastikan QR image tersedia

@@ -1,0 +1,14 @@
+services:
+  forma-app:
+    build: .
+    container_name: forma-gym-pool
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - forma-storage:/app/server/uploads
+      - forma-db:/app/server/db_data
+
+volumes:
+  forma-storage:
+  forma-db:

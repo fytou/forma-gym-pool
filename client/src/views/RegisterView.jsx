@@ -74,36 +74,69 @@ export default function RegisterView({ onSuccess }) {
   // Webcam controls
   const startWebcam = async () => {
     setPhotoType('webcam');
+    setError('');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 320 } });
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'user'
+          }
+        });
+      } catch (errConstraint) {
+        // Fallback to basic video constraint if ideal resolution fails
+        console.warn('Fallback to basic video constraint:', errConstraint);
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+
       mediaStreamRef.current = stream;
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        try {
+          await videoRef.current.play();
+        } catch (playErr) {
+          console.warn('Video auto-play warning:', playErr);
+        }
       }
+
       setWebcamStreaming(true);
     } catch (err) {
-      console.warn('Webcam not allowed or unavailable:', err);
-      setError('Kamera tidak dapat diakses. Silakan gunakan upload foto atau preset.');
+      console.error('Webcam access error:', err);
+      setError('Kamera tidak dapat diakses (izin kamera ditolak atau kamera sedang dipakai aplikasi lain). Silakan izinkan browser atau gunakan upload foto.');
       setPhotoType('preset');
+      setWebcamStreaming(false);
     }
   };
 
   const stopWebcam = () => {
     if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current.getTracks().forEach(track => {
+        try {
+          track.stop();
+        } catch (e) {}
+      });
       mediaStreamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
     setWebcamStreaming(false);
   };
 
   const capturePhoto = () => {
     if (!videoRef.current) return;
+    const video = videoRef.current;
     const canvas = document.createElement('canvas');
-    canvas.width = 300;
-    canvas.height = 300;
+    const w = video.videoWidth || 320;
+    const h = video.videoHeight || 320;
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(videoRef.current, 0, 0, 300, 300);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    ctx.drawImage(video, 0, 0, w, h);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
     setPhotoData(dataUrl);
     setPhotoFile(null);
     stopWebcam();
@@ -213,9 +246,14 @@ export default function RegisterView({ onSuccess }) {
               {/* Photo selector box */}
               <div className="md:col-span-4 flex flex-col items-center bg-slate-50 p-4 rounded-2xl border border-slate-200">
                 <div className="w-28 h-28 rounded-2xl overflow-hidden border-2 border-emerald-500 shadow-md bg-slate-200 mb-3 relative flex items-center justify-center">
-                  {webcamStreaming ? (
-                    <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-                  ) : (
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`w-full h-full object-cover ${webcamStreaming ? 'block' : 'hidden'}`}
+                  />
+                  {!webcamStreaming && (
                     <img src={photoData} alt="Preview" className="w-full h-full object-cover" />
                   )}
                 </div>

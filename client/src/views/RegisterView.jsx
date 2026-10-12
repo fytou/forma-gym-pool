@@ -212,10 +212,11 @@ export default function RegisterView({ onSuccess }) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Title */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center space-x-2">
+      <div className="no-print space-y-6">
+        {/* Title */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center space-x-2">
             <UserPlus className="w-6 h-6 text-emerald-600" />
             <span>Pendaftaran Member Baru</span>
           </h1>
@@ -473,6 +474,7 @@ export default function RegisterView({ onSuccess }) {
           </button>
         </div>
       </form>
+      </div>
 
       {/* Instant Print Card Modal popup after success */}
       {newlyCreatedMember && (

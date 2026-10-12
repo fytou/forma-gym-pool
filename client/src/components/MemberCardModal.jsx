@@ -20,153 +20,216 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
     a.click();
   };
 
-  // Download entire card as high-res PNG image
-  const handleDownloadCardImage = () => {
+  // Download entire card as high-res PNG image (fast, CORS-safe, never hangs)
+  const handleDownloadCardImage = async () => {
     setDownloadingImage(true);
-    const canvas = document.createElement('canvas');
-    const scale = 2; // 2x retina sharpness
-    const w = 420 * scale;
-    const h = 250 * scale;
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
+    try {
+      const canvas = document.createElement('canvas');
+      const scale = 2; // 2x sharpness
+      const w = 420 * scale;
+      const h = 250 * scale;
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
 
-    // 1. Background gradient
-    const grad = ctx.createLinearGradient(0, 0, w, h);
-    grad.addColorStop(0, '#020617'); // slate-950
-    grad.addColorStop(0.5, '#0f172a'); // slate-900
-    grad.addColorStop(1, '#022c22'); // emerald-950
-    ctx.fillStyle = grad;
+      // Helper to draw clean avatar fallback
+      const drawAvatar = () => {
+        const px = 24 * scale;
+        const py = 74 * scale;
+        const ps = 70 * scale;
+        ctx.fillStyle = '#0f172a';
+        if (ctx.roundRect) {
+          ctx.beginPath();
+          ctx.roundRect(px, py, ps, ps, 12 * scale);
+          ctx.fill();
+        } else {
+          ctx.fillRect(px, py, ps, ps);
+        }
+        const initials = (member.nama || 'M')
+          .split(' ')
+          .map((n) => n[0])
+          .join('')
+          .substring(0, 2)
+          .toUpperCase();
+        ctx.fillStyle = '#34d399';
+        ctx.font = `bold ${24 * scale}px "Plus Jakarta Sans", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(initials, px + ps / 2, py + ps / 2 + 8 * scale);
+        ctx.textAlign = 'left';
+      };
 
-    if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(0, 0, w, h, 20 * scale);
-      ctx.fill();
-    } else {
-      ctx.fillRect(0, 0, w, h);
-    }
+      // Helper function to render complete card on canvas
+      const renderCard = (photoEl, qrEl) => {
+        ctx.clearRect(0, 0, w, h);
 
-    // Border
-    ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 2 * scale;
-    ctx.stroke();
+        // 1. Background gradient
+        const grad = ctx.createLinearGradient(0, 0, w, h);
+        grad.addColorStop(0, '#020617'); // slate-950
+        grad.addColorStop(0.5, '#0f172a'); // slate-900
+        grad.addColorStop(1, '#022c22'); // emerald-950
+        ctx.fillStyle = grad;
 
-    // 2. Header: FORMA MEMBER PASS
-    ctx.fillStyle = '#10b981'; // emerald-500
-    ctx.font = `bold ${16 * scale}px "Plus Jakarta Sans", sans-serif`;
-    ctx.fillText('FORMA', 24 * scale, 34 * scale);
+        if (ctx.roundRect) {
+          ctx.beginPath();
+          ctx.roundRect(0, 0, w, h, 20 * scale);
+          ctx.fill();
+        } else {
+          ctx.fillRect(0, 0, w, h);
+        }
 
-    ctx.fillStyle = '#f8fafc';
-    ctx.font = `bold ${11 * scale}px "Plus Jakarta Sans", sans-serif`;
-    ctx.fillText('MEMBER PASS', 90 * scale, 34 * scale);
+        // Border
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 2 * scale;
+        ctx.stroke();
 
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = `${8 * scale}px "Plus Jakarta Sans", sans-serif`;
-    ctx.fillText('SMART SYSTEM FOR BUSINESS', 24 * scale, 48 * scale);
+        // 2. Header
+        ctx.fillStyle = '#10b981';
+        ctx.font = `bold ${16 * scale}px "Plus Jakarta Sans", sans-serif`;
+        ctx.fillText('FORMA', 24 * scale, 34 * scale);
 
-    // Facility Badge
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(w - 140 * scale, 18 * scale, 116 * scale, 24 * scale);
-    ctx.strokeStyle = '#059669';
-    ctx.strokeRect(w - 140 * scale, 18 * scale, 116 * scale, 24 * scale);
-    ctx.fillStyle = '#34d399';
-    ctx.font = `bold ${10 * scale}px "Plus Jakarta Sans", sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillText(paketFasilitas === 'Gym+Pool' ? 'ALL ACCESS' : paketFasilitas, w - 82 * scale, 34 * scale);
-    ctx.textAlign = 'left';
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = `bold ${11 * scale}px "Plus Jakarta Sans", sans-serif`;
+        ctx.fillText('MEMBER PASS', 90 * scale, 34 * scale);
 
-    // Divider
-    ctx.strokeStyle = '#1e293b';
-    ctx.beginPath();
-    ctx.moveTo(24 * scale, 58 * scale);
-    ctx.lineTo(w - 24 * scale, 58 * scale);
-    ctx.stroke();
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = `${8 * scale}px "Plus Jakarta Sans", sans-serif`;
+        ctx.fillText('SMART SYSTEM FOR BUSINESS', 24 * scale, 48 * scale);
 
-    // 3. Photo & Details
-    const photoImg = new Image();
-    photoImg.crossOrigin = 'anonymous';
-    photoImg.src = member.foto || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200';
+        // Facility Badge
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(w - 140 * scale, 18 * scale, 116 * scale, 24 * scale);
+        ctx.strokeStyle = '#059669';
+        ctx.strokeRect(w - 140 * scale, 18 * scale, 116 * scale, 24 * scale);
+        ctx.fillStyle = '#34d399';
+        ctx.font = `bold ${10 * scale}px "Plus Jakarta Sans", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(paketFasilitas === 'Gym+Pool' ? 'ALL ACCESS' : paketFasilitas, w - 82 * scale, 34 * scale);
+        ctx.textAlign = 'left';
 
-    const qrImg = new Image();
-    qrImg.src = qrImage;
-
-    const renderRemaining = () => {
-      // Photo rounded rect
-      try {
-        ctx.save();
+        // Divider
+        ctx.strokeStyle = '#1e293b';
         ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(24 * scale, 74 * scale, 70 * scale, 70 * scale, 12 * scale);
-        else ctx.rect(24 * scale, 74 * scale, 70 * scale, 70 * scale);
-        ctx.clip();
-        ctx.drawImage(photoImg, 24 * scale, 74 * scale, 70 * scale, 70 * scale);
-        ctx.restore();
-      } catch (e) {
-        ctx.fillStyle = '#1e293b';
-        ctx.fillRect(24 * scale, 74 * scale, 70 * scale, 70 * scale);
+        ctx.moveTo(24 * scale, 58 * scale);
+        ctx.lineTo(w - 24 * scale, 58 * scale);
+        ctx.stroke();
+
+        // 3. Photo or Avatar
+        const px = 24 * scale;
+        const py = 74 * scale;
+        const ps = 70 * scale;
+
+        if (photoEl) {
+          try {
+            ctx.save();
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(px, py, ps, ps, 12 * scale);
+            else ctx.rect(px, py, ps, ps);
+            ctx.clip();
+            ctx.drawImage(photoEl, px, py, ps, ps);
+            ctx.restore();
+          } catch (e) {
+            drawAvatar();
+          }
+        } else {
+          drawAvatar();
+        }
+
+        // Photo border
+        ctx.strokeStyle = '#059669';
+        ctx.lineWidth = 1.5 * scale;
+        if (ctx.roundRect) {
+          ctx.beginPath();
+          ctx.roundRect(px, py, ps, ps, 12 * scale);
+          ctx.stroke();
+        }
+
+        // 4. Member Details
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${16 * scale}px "Plus Jakarta Sans", sans-serif`;
+        ctx.fillText(member.nama, 108 * scale, 94 * scale);
+
+        ctx.fillStyle = '#34d399';
+        ctx.font = `bold ${12 * scale}px "JetBrains Mono", monospace`;
+        ctx.fillText(member.id_member, 108 * scale, 114 * scale);
+
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = `${10 * scale}px "Plus Jakarta Sans", sans-serif`;
+        ctx.fillText(`Paket: ${paketNama}`, 108 * scale, 132 * scale);
+        ctx.fillText(`HP: ${member.no_hp}`, 108 * scale, 148 * scale);
+
+        // 5. QR Code
+        if (qrEl) {
+          try {
+            ctx.fillStyle = '#ffffff';
+            if (ctx.roundRect) ctx.roundRect(w - 100 * scale, 74 * scale, 76 * scale, 76 * scale, 10 * scale);
+            else ctx.fillRect(w - 100 * scale, 74 * scale, 76 * scale, 76 * scale);
+            ctx.fill();
+            ctx.drawImage(qrEl, w - 96 * scale, 78 * scale, 68 * scale, 68 * scale);
+          } catch (e) {}
+        }
+
+        // 6. Footer
+        ctx.strokeStyle = '#1e293b';
+        ctx.beginPath();
+        ctx.moveTo(24 * scale, 210 * scale);
+        ctx.lineTo(w - 24 * scale, 210 * scale);
+        ctx.stroke();
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = `${9 * scale}px "Plus Jakarta Sans", sans-serif`;
+        ctx.fillText('Berlaku s/d: ', 24 * scale, 228 * scale);
+        ctx.fillStyle = '#34d399';
+        ctx.font = `bold ${9 * scale}px "Plus Jakarta Sans", sans-serif`;
+        ctx.fillText(validUntil, 84 * scale, 228 * scale);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = `${8 * scale}px "JetBrains Mono", monospace`;
+        ctx.textAlign = 'right';
+        ctx.fillText('FORMA-SECURE-ACCESS', w - 24 * scale, 228 * scale);
+      };
+
+      // Fast preload QR (data URL is immediate < 5ms)
+      const qrEl = await new Promise((res) => {
+        if (!qrImage) return res(null);
+        const img = new Image();
+        img.onload = () => res(img);
+        img.onerror = () => res(null);
+        img.src = qrImage;
+      });
+
+      // Fast preload photo if local data or upload
+      let photoEl = null;
+      if (member.foto && (member.foto.startsWith('data:') || member.foto.startsWith('/uploads'))) {
+        photoEl = await new Promise((res) => {
+          const img = new Image();
+          img.onload = () => res(img);
+          img.onerror = () => res(null);
+          img.src = member.foto;
+        });
       }
 
-      // Member Name
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `bold ${16 * scale}px "Plus Jakarta Sans", sans-serif`;
-      ctx.fillText(member.nama, 108 * scale, 94 * scale);
+      // Render card
+      renderCard(photoEl, qrEl);
 
-      // Member ID
-      ctx.fillStyle = '#34d399';
-      ctx.font = `bold ${12 * scale}px "JetBrains Mono", monospace`;
-      ctx.fillText(member.id_member, 108 * scale, 114 * scale);
-
-      // Package & Phone
-      ctx.fillStyle = '#cbd5e1';
-      ctx.font = `${10 * scale}px "Plus Jakarta Sans", sans-serif`;
-      ctx.fillText(`Paket: ${paketNama}`, 108 * scale, 132 * scale);
-      ctx.fillText(`HP: ${member.no_hp}`, 108 * scale, 148 * scale);
-
-      // QR Code
+      // Safe export without tainted canvas crash
+      let dataUrl;
       try {
-        ctx.fillStyle = '#ffffff';
-        if (ctx.roundRect) ctx.roundRect(w - 100 * scale, 74 * scale, 76 * scale, 76 * scale, 10 * scale);
-        else ctx.fillRect(w - 100 * scale, 74 * scale, 76 * scale, 76 * scale);
-        ctx.fill();
-        ctx.drawImage(qrImg, w - 96 * scale, 78 * scale, 68 * scale, 68 * scale);
-      } catch (e) {}
+        dataUrl = canvas.toDataURL('image/png');
+      } catch (taintErr) {
+        renderCard(null, qrEl);
+        dataUrl = canvas.toDataURL('image/png');
+      }
 
-      // Footer
-      ctx.strokeStyle = '#1e293b';
-      ctx.beginPath();
-      ctx.moveTo(24 * scale, 210 * scale);
-      ctx.lineTo(w - 24 * scale, 210 * scale);
-      ctx.stroke();
-
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = `${9 * scale}px "Plus Jakarta Sans", sans-serif`;
-      ctx.fillText('Berlaku s/d: ', 24 * scale, 228 * scale);
-      ctx.fillStyle = '#34d399';
-      ctx.font = `bold ${9 * scale}px "Plus Jakarta Sans", sans-serif`;
-      ctx.fillText(validUntil, 84 * scale, 228 * scale);
-
-      ctx.fillStyle = '#64748b';
-      ctx.font = `${8 * scale}px "JetBrains Mono", monospace`;
-      ctx.textAlign = 'right';
-      ctx.fillText('FORMA-SECURE-ACCESS', w - 24 * scale, 228 * scale);
-
-      // Download trigger
       const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png');
+      a.href = dataUrl;
       a.download = `Kartu-Member-${member.id_member}-${member.nama.replace(/\s+/g, '_')}.png`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Error generating card image:', err);
+    } finally {
       setDownloadingImage(false);
-    };
-
-    photoImg.onload = () => {
-      if (qrImg.complete) renderRemaining();
-      else qrImg.onload = renderRemaining;
-    };
-    photoImg.onerror = () => {
-      if (qrImg.complete) renderRemaining();
-      else qrImg.onload = renderRemaining;
-    };
-    if (photoImg.complete && qrImg.complete) {
-      renderRemaining();
     }
   };
 

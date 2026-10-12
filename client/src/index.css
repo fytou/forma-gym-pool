@@ -12,7 +12,7 @@
 @media print {
   @page {
     size: A4 portrait;
-    margin: 15mm auto;
+    margin: 0;
   }
 
   html, body {
@@ -24,21 +24,21 @@
     color-adjust: exact !important;
   }
 
-  /* Hide everything marked no-print */
+  /* Completely hide all non-print elements */
   .no-print, header, nav, footer {
     display: none !important;
   }
 
-  /* Make modal transparent and centered on printed page */
+  /* Reset modal containers so card displays directly on printed page */
   .modal-overlay {
     position: static !important;
     background: transparent !important;
     backdrop-filter: none !important;
     padding: 0 !important;
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    min-height: 100vh !important;
+    margin: 0 !important;
+    display: block !important;
+    height: auto !important;
+    min-height: auto !important;
   }
 
   .modal-box {
@@ -49,17 +49,17 @@
     width: 100% !important;
     padding: 0 !important;
     margin: 0 auto !important;
-    display: flex !important;
-    justify-content: center !important;
+    display: block !important;
   }
 
   .print-card-wrapper {
     background: transparent !important;
-    padding: 10mm 0 !important;
+    padding: 30mm 0 0 0 !important;
     display: flex !important;
     justify-content: center !important;
     align-items: center !important;
     width: 100% !important;
+    margin: 0 auto !important;
   }
 
   .print-card-area {
@@ -69,8 +69,10 @@
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    box-shadow: none !important;
     border: 1px solid #1e293b !important;
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }

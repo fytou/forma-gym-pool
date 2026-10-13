@@ -86,7 +86,7 @@ export default function App() {
   const isSuperadmin = currentUser.role === 'superadmin';
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans selection:bg-[#c5a059] selection:text-slate-950">
+    <div className="min-h-screen w-full overflow-x-hidden bg-slate-100 flex flex-col font-sans selection:bg-[#c5a059] selection:text-slate-950">
       {/* Navigation */}
       <Navbar 
         activeTab={activeTab} 

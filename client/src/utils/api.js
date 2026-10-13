@@ -165,3 +165,87 @@ export async function getQrCode(code) {
   const res = await fetch(`${API_BASE}/qrcode/${encodeURIComponent(code)}`);
   return res.json();
 }
+
+// ==========================================
+// AUTHENTICATION & USER HELPERS
+// ==========================================
+export function getAuthToken() {
+  return localStorage.getItem('forma_auth_token');
+}
+
+export function setAuthToken(token) {
+  if (token) localStorage.setItem('forma_auth_token', token);
+  else localStorage.removeItem('forma_auth_token');
+}
+
+export function getStoredUser() {
+  try {
+    const raw = localStorage.getItem('forma_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredUser(user) {
+  if (user) localStorage.setItem('forma_user', JSON.stringify(user));
+  else localStorage.removeItem('forma_user');
+}
+
+export async function loginUser(username, password) {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  return res.json();
+}
+
+export async function getMe() {
+  const token = getAuthToken();
+  if (!token) return { success: false, message: 'No token' };
+  try {
+    const res = await fetch(`${API_BASE}/auth/me`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return res.json();
+  } catch {
+    return { success: false, message: 'Network error' };
+  }
+}
+
+export async function logoutUser() {
+  const token = getAuthToken();
+  try {
+    if (token) {
+      await fetch(`${API_BASE}/auth/logout`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    }
+  } catch {}
+  setAuthToken(null);
+  setStoredUser(null);
+}
+
+export async function getUsers() {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/users`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  return res.json();
+}
+
+export async function addUser(userData) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/users`, {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}` 
+    },
+    body: JSON.stringify(userData)
+  });
+  return res.json();
+}
+

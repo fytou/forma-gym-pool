@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const QRCode = require('qrcode');
-const { db, computeMemberStatus } = require('./db');
+const { db, computeMemberStatus, hashPassword } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -89,6 +89,136 @@ function getMemberWithDetails(memberId) {
     checked_in_at: activeLog ? activeLog.jam_masuk : null
   };
 }
+
+// ==========================================
+// 0. AUTHENTICATION & USER MANAGEMENT
+// ==========================================
+// Simple secure token session store (in-memory map)
+const sessions = new Map();
+
+// Helper to authenticate user by token
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+  
+  if (!token || !sessions.has(token)) {
+    return res.status(401).json({ success: false, message: 'Sesi login tidak valid atau sudah kedaluwarsa.' });
+  }
+
+  const sessionUser = sessions.get(token);
+  req.user = sessionUser;
+  next();
+}
+
+// Optional auth helper (for public read or conditional)
+function requireRole(allowedRoles) {
+  return (req, res, next) => {
+    if (!req.user || !allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Akses ditolak. Anda tidak memiliki izin role ini.' });
+    }
+    next();
+  };
+}
+
+// POST /api/auth/login
+app.post('/api/auth/login', (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ success: false, message: 'Username dan password wajib diisi.' });
+    }
+
+    const trimmedUsername = username.trim().toLowerCase();
+    const passwordHash = hashPassword(password);
+
+    const user = db.prepare('SELECT id_user, username, password_hash, nama_lengkap, role FROM users WHERE LOWER(username) = ?').get(trimmedUsername);
+    if (!user || user.password_hash !== passwordHash) {
+      return res.status(401).json({ success: false, message: 'Username atau password salah.' });
+    }
+
+    // Create session token
+    const token = require('crypto').randomBytes(32).toString('hex');
+    const userData = {
+      id_user: user.id_user,
+      username: user.username,
+      nama_lengkap: user.nama_lengkap,
+      role: user.role
+    };
+
+    sessions.set(token, userData);
+
+    res.json({
+      success: true,
+      message: 'Login berhasil.',
+      token,
+      user: userData
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET /api/auth/me (Verify session)
+app.get('/api/auth/me', (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+
+  if (!token || !sessions.has(token)) {
+    return res.status(401).json({ success: false, message: 'Belum login.' });
+  }
+
+  res.json({
+    success: true,
+    user: sessions.get(token)
+  });
+});
+
+// POST /api/auth/logout
+app.post('/api/auth/logout', (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+  if (token) {
+    sessions.delete(token);
+  }
+  res.json({ success: true, message: 'Logout berhasil.' });
+});
+
+// GET /api/users (Superadmin only: list users)
+app.get('/api/users', authenticateToken, requireRole(['superadmin']), (req, res) => {
+  try {
+    const users = db.prepare('SELECT id_user, username, nama_lengkap, role, created_at FROM users ORDER BY id_user ASC').all();
+    res.json({ success: true, data: users });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST /api/users (Superadmin only: add user)
+app.post('/api/users', authenticateToken, requireRole(['superadmin']), (req, res) => {
+  try {
+    const { username, password, nama_lengkap, role } = req.body;
+    if (!username || !password || !nama_lengkap || !role) {
+      return res.status(400).json({ success: false, message: 'Semua field akun wajib diisi.' });
+    }
+
+    if (!['superadmin', 'kasir'].includes(role)) {
+      return res.status(400).json({ success: false, message: 'Role harus superadmin atau kasir.' });
+    }
+
+    const trimmedUsername = username.trim().toLowerCase();
+    const existing = db.prepare('SELECT id_user FROM users WHERE LOWER(username) = ?').get(trimmedUsername);
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Username sudah digunakan.' });
+    }
+
+    const insert = db.prepare('INSERT INTO users (username, password_hash, nama_lengkap, role) VALUES (?, ?, ?, ?)');
+    insert.run(trimmedUsername, hashPassword(password), nama_lengkap.trim(), role);
+
+    res.json({ success: true, message: 'Akun user berhasil ditambahkan.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // ==========================================
 // 1. DASHBOARD ENDPOINT (6 PRD Metrics)

@@ -97,6 +97,36 @@ db.exec(`
     FOREIGN KEY (membership_id) REFERENCES memberships(id_membership) ON DELETE CASCADE
   );
 `);
+// 6. Users & Roles (Superadmin & Kasir/Admin)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id_user INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    nama_lengkap TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('superadmin', 'kasir')),
+    created_at TEXT DEFAULT (datetime('now', 'localtime'))
+  );
+`);
+
+// Seed default users if table is empty
+const crypto = require('crypto');
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+const existingUserCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
+if (!existingUserCount || existingUserCount.count === 0) {
+  const insertUser = db.prepare(`
+    INSERT INTO users (username, password_hash, nama_lengkap, role)
+    VALUES (?, ?, ?, ?)
+  `);
+  // Superadmin account: username superadmin, pass forma123
+  insertUser.run('superadmin', hashPassword('forma123'), 'Super Administrator', 'superadmin');
+  // Kasir / Admin Front Desk account: username kasir, pass kasir123
+  insertUser.run('kasir', hashPassword('kasir123'), 'Staff Front Desk / Kasir', 'kasir');
+  console.log('Default users seeded: superadmin and kasir');
+}
 
 // Function to calculate helper member status
 function computeMemberStatus(tanggalBerakhir) {
@@ -267,5 +297,6 @@ seedDatabase();
 
 module.exports = {
   db,
-  computeMemberStatus
+  computeMemberStatus,
+  hashPassword
 };

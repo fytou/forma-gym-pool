@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, User, Shield, AlertCircle, ArrowRight, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { Lock, User, Shield, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { loginUser, setAuthToken, setStoredUser } from '../utils/api';
 
 export default function LoginView({ onLoginSuccess }) {
@@ -33,13 +33,6 @@ export default function LoginView({ onLoginSuccess }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Helper quick fill for testing / convenience
-  const handleQuickFill = (u, p) => {
-    setUsername(u);
-    setPassword(p);
-    setError('');
   };
 
   return (
@@ -100,7 +93,7 @@ export default function LoginView({ onLoginSuccess }) {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="superadmin / kasir"
+                  placeholder="Masukkan username"
                   required
                   autoFocus
                   className="w-full pl-10 pr-4 py-2.5 bg-[#0a0b0e] border border-slate-700/80 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-[#c5a059] focus:ring-1 focus:ring-[#c5a059] transition"
@@ -152,31 +145,6 @@ export default function LoginView({ onLoginSuccess }) {
             </button>
           </form>
 
-          {/* Quick Selection Helper for Local Admin & Kasir */}
-          <div className="mt-6 pt-5 border-t border-slate-800/80">
-            <p className="text-[11px] font-bold text-slate-400 mb-2.5 flex items-center space-x-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#c5a059]" />
-              <span>Akses Cepat (Default):</span>
-            </p>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => handleQuickFill('superadmin', 'forma123')}
-                className="p-2 rounded-lg bg-slate-900/90 border border-slate-800 hover:border-[#c5a059]/60 text-left transition group"
-              >
-                <div className="font-bold text-[#dfc185] group-hover:text-white">👑 Superadmin</div>
-                <div className="text-[10px] text-slate-400 mt-0.5 font-mono">superadmin / forma123</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('kasir', 'kasir123')}
-                className="p-2 rounded-lg bg-slate-900/90 border border-slate-800 hover:border-[#c5a059]/60 text-left transition group"
-              >
-                <div className="font-bold text-slate-200 group-hover:text-white">💳 Kasir / Front Desk</div>
-                <div className="text-[10px] text-slate-400 mt-0.5 font-mono">kasir / kasir123</div>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Footer info */}

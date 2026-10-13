@@ -214,11 +214,33 @@ app.post('/api/users', authenticateToken, requireRole(['superadmin']), (req, res
     const insert = db.prepare('INSERT INTO users (username, password_hash, nama_lengkap, role) VALUES (?, ?, ?, ?)');
     insert.run(trimmedUsername, hashPassword(password), nama_lengkap.trim(), role);
 
-    res.json({ success: true, message: 'Akun user berhasil ditambahkan.' });
+    res.json({ success: true, message: 'Akun kasir / admin berhasil ditambahkan.' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+// DELETE /api/users/:id (Superadmin only: delete user)
+app.delete('/api/users/:id', authenticateToken, requireRole(['superadmin']), (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    // Do not allow deleting own account or the main superadmin
+    if (req.user.id_user === userId) {
+      return res.status(400).json({ success: false, message: 'Tidak dapat menghapus akun Anda sendiri saat sedang login.' });
+    }
+
+    const targetUser = db.prepare('SELECT * FROM users WHERE id_user = ?').get(userId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+    }
+
+    db.prepare('DELETE FROM users WHERE id_user = ?').run(userId);
+    res.json({ success: true, message: `Akun ${targetUser.username} berhasil dihapus.` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 
 // ==========================================
 // 1. DASHBOARD ENDPOINT (6 PRD Metrics)

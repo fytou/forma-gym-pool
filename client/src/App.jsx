@@ -7,6 +7,7 @@ import RegisterView from './views/RegisterView';
 import PackagesView from './views/PackagesView';
 import LogsView from './views/LogsView';
 import TransactionsView from './views/TransactionsView';
+import UsersView from './views/UsersView';
 import LoginView from './views/LoginView';
 import { getStoredUser, setStoredUser, getAuthToken, setAuthToken, getMe, logoutUser } from './utils/api';
 
@@ -142,6 +143,16 @@ export default function App() {
           ) : (
             <div className="bg-white rounded-2xl p-8 text-center border border-slate-200">
               <p className="text-slate-600 font-bold">Laporan Keuangan & Transaksi hanya dapat diakses oleh Superadmin.</p>
+            </div>
+          )
+        )}
+
+        {activeTab === 'users' && (
+          isSuperadmin ? (
+            <UsersView />
+          ) : (
+            <div className="bg-white rounded-2xl p-8 text-center border border-slate-200">
+              <p className="text-slate-600 font-bold">Halaman Manajemen Kasir hanya dapat diakses oleh Superadmin.</p>
             </div>
           )
         )}

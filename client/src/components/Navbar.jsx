@@ -28,6 +28,7 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onLogout 
     { id: 'packages', label: 'Paket', icon: Package, roles: ['superadmin'] },
     { id: 'logs', label: 'Riwayat Log', icon: History, roles: ['superadmin', 'kasir'] },
     { id: 'transactions', label: 'Transaksi', icon: Receipt, roles: ['superadmin'] },
+    { id: 'users', label: 'Kelola Kasir', icon: Shield, roles: ['superadmin'] },
   ];
 
   // Filter items based on user role

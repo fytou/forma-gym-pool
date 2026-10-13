@@ -249,3 +249,14 @@ export async function addUser(userData) {
   return res.json();
 }
 
+export async function deleteUser(id) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/users/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  return res.json();
+}
+
+
+

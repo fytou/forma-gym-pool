@@ -155,8 +155,9 @@ export async function getCheckinLogs(params = {}) {
 }
 
 // Transactions
-export async function getTransactions() {
-  const res = await fetch(`${API_BASE}/transactions`);
+export async function getTransactions(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  const res = await fetch(`${API_BASE}/transactions?${query}`);
   return res.json();
 }
 

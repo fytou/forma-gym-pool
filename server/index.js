@@ -957,20 +957,90 @@ app.get('/api/checkin/logs', (req, res) => {
   }
 });
 
-// History Transaksi
+// History Transaksi dengan Filter Periode & Pencarian Member
 app.get('/api/transactions', (req, res) => {
   try {
-    const transactions = db.prepare(`
+    const { search = '', bulan = '', tahun = '', jenis = '', limit = 50, page = 1 } = req.query;
+
+    let query = `
       SELECT t.*, m.id_member, m.nama, m.no_hp, p.nama_paket
       FROM transactions t
       JOIN memberships ms ON t.membership_id = ms.id_membership
       JOIN members m ON ms.member_id = m.id_member
       JOIN packages p ON ms.paket_id = p.id_paket
-      ORDER BY t.id_transaksi DESC
-      LIMIT 100
-    `).all();
+      WHERE 1=1
+    `;
+    const params = [];
 
-    res.json({ success: true, data: transactions });
+    // Filter nama, id_member, no_hp, atau nomor transaksi
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      query += ` AND (m.nama LIKE ? OR m.id_member LIKE ? OR m.no_hp LIKE ? OR ('TRX-' || printf('%05d', t.id_transaksi)) LIKE ?)`;
+      params.push(s, s, s, s);
+    }
+
+    // Filter Bulan & Tahun (Format t.tanggal_bayar: 'YYYY-MM-DD HH:MM:SS')
+    if (bulan && tahun) {
+      const ym = `${tahun}-${String(bulan).padStart(2, '0')}%`;
+      query += ` AND t.tanggal_bayar LIKE ?`;
+      params.push(ym);
+    } else if (tahun) {
+      const y = `${tahun}%`;
+      query += ` AND t.tanggal_bayar LIKE ?`;
+      params.push(y);
+    }
+
+    // Filter Jenis (daftar / perpanjang)
+    if (jenis && jenis !== 'Semua') {
+      query += ` AND t.jenis = ?`;
+      params.push(jenis);
+    }
+
+    // Get total sum for the filtered criteria
+    let sumQuery = `
+      SELECT SUM(t.jumlah_bayar) as total_filtered, COUNT(t.id_transaksi) as total_count
+      FROM transactions t
+      JOIN memberships ms ON t.membership_id = ms.id_membership
+      JOIN members m ON ms.member_id = m.id_member
+      WHERE 1=1
+    `;
+    const sumParams = [];
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      sumQuery += ` AND (m.nama LIKE ? OR m.id_member LIKE ? OR m.no_hp LIKE ? OR ('TRX-' || printf('%05d', t.id_transaksi)) LIKE ?)`;
+      sumParams.push(s, s, s, s);
+    }
+    if (bulan && tahun) {
+      const ym = `${tahun}-${String(bulan).padStart(2, '0')}%`;
+      sumQuery += ` AND t.tanggal_bayar LIKE ?`;
+      sumParams.push(ym);
+    } else if (tahun) {
+      const y = `${tahun}%`;
+      sumQuery += ` AND t.tanggal_bayar LIKE ?`;
+      sumParams.push(y);
+    }
+    if (jenis && jenis !== 'Semua') {
+      sumQuery += ` AND t.jenis = ?`;
+      sumParams.push(jenis);
+    }
+
+    const stat = db.prepare(sumQuery).get(...sumParams);
+
+    query += ' ORDER BY t.id_transaksi DESC LIMIT ? OFFSET ?';
+    const numLimit = Number(limit) || 10;
+    const numOffset = ((Number(page) || 1) - 1) * numLimit;
+    params.push(numLimit, numOffset);
+
+    const transactions = db.prepare(query).all(...params);
+
+    res.json({ 
+      success: true, 
+      data: transactions,
+      total_nominal: stat?.total_filtered || 0,
+      total_count: stat?.total_count || 0,
+      page: Number(page) || 1,
+      limit: numLimit
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

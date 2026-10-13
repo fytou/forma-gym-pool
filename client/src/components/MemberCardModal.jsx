@@ -610,12 +610,13 @@ Terima kasih telah menjadi bagian dari keluarga besar FORMA! 🙏`;
         </div>
 
         {/* Modal Body / Print Wrapper */}
-        <div className="print-card-wrapper p-6 bg-[#16171d] flex flex-col items-center">
+        <div className="print-card-wrapper p-3 sm:p-6 bg-[#16171d] flex flex-col items-center w-full overflow-x-auto">
           {/* PRINTABLE CARD AREA (Exact 1:1 Black & Gold Luxury ID Theme) */}
-          <div 
-            ref={cardRef}
-            className="print-card-area w-[540px] h-[320px] bg-[#0c0c0c] text-white rounded-2xl border-[1.5px] border-[#c5a059] p-2 relative overflow-hidden select-none flex-shrink-0 shadow-2xl"
-          >
+          <div className="w-full flex justify-center overflow-x-auto py-2">
+            <div 
+              ref={cardRef}
+              className="print-card-area w-[540px] max-w-[540px] h-[320px] bg-[#0c0c0c] text-white rounded-2xl border-[1.5px] border-[#c5a059] p-2 relative overflow-hidden select-none flex-shrink-0 shadow-2xl"
+            >
             {/* Inner Gold Border Inset */}
             <div className="w-full h-full rounded-xl border border-[#c5a059]/65 p-3.5 flex flex-col justify-between relative overflow-hidden">
               {/* Concentric Watermark in background */}
@@ -719,9 +720,10 @@ Terima kasih telah menjadi bagian dari keluarga besar FORMA! 🙏`;
               </div>
             </div>
           </div>
+        </div>
 
           {/* Quick Info Bar below card (Matching Client Mockup Image 2) */}
-          <div className="no-print w-[540px] mt-4 flex items-center justify-between text-xs px-1">
+          <div className="no-print w-full max-w-[540px] mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs px-1">
             <div className="px-3 py-1.5 rounded-lg bg-slate-800/90 text-slate-300 border border-slate-700/80 font-medium">
               Paket: <strong className="text-white font-bold">{paketNama}</strong>
             </div>
@@ -732,7 +734,7 @@ Terima kasih telah menjadi bagian dari keluarga besar FORMA! 🙏`;
 
           {/* WhatsApp Toast Guidance Banner */}
           {waToast && (
-            <div className="no-print w-[540px] mt-3 p-3 bg-[#1e1b13] border border-[#c5a059]/50 rounded-xl text-[#dfc185] text-xs flex items-center space-x-2.5 animate-in fade-in duration-200 shadow-lg">
+            <div className="no-print w-full max-w-[540px] mt-3 p-3 bg-[#1e1b13] border border-[#c5a059]/50 rounded-xl text-[#dfc185] text-xs flex items-center space-x-2.5 animate-in fade-in duration-200 shadow-lg">
               <CheckCircle2 className="w-4 h-4 text-[#c5a059] flex-shrink-0" />
               <div className="flex-1 text-[11px] leading-relaxed">
                 <strong className="text-white font-bold">Gambar kartu otomatis diunduh & disalin!</strong>

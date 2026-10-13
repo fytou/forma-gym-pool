@@ -274,16 +274,16 @@ export default function CheckInView({ onNavigateToRegister }) {
   return (
     <div className="space-y-6">
       {/* Top Banner: Facility Selector & Shortcuts */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3.5 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
         {/* Facility toggle */}
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
             Pintu / Fasilitas:
           </span>
-          <div className="flex bg-slate-100 p-1 rounded-xl">
+          <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
             <button
               onClick={() => { setSelectedFacility('Gym'); focusInput(); }}
-              className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-bold transition ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center space-x-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold transition ${
                 selectedFacility === 'Gym'
                   ? 'bg-slate-900 text-[#dfc185] shadow-md'
                   : 'text-slate-600 hover:text-slate-900'
@@ -291,11 +291,11 @@ export default function CheckInView({ onNavigateToRegister }) {
             >
               <Dumbbell className="w-4 h-4" />
               <span>Pintu GYM</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">F1</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono hidden xs:inline">F1</span>
             </button>
             <button
               onClick={() => { setSelectedFacility('Pool'); focusInput(); }}
-              className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-bold transition ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center space-x-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold transition ${
                 selectedFacility === 'Pool'
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'text-slate-600 hover:text-slate-900'
@@ -303,20 +303,20 @@ export default function CheckInView({ onNavigateToRegister }) {
             >
               <Waves className="w-4 h-4" />
               <span>Pintu POOL</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-800 text-blue-200 font-mono">F2</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-800 text-blue-200 font-mono hidden xs:inline">F2</span>
             </button>
           </div>
         </div>
 
         {/* Mode selector */}
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
             Mode Alur:
           </span>
-          <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+          <div className="flex flex-wrap bg-slate-100 p-1 rounded-xl text-xs font-semibold w-full sm:w-auto">
             <button
               onClick={() => { setMode('auto'); focusInput(); }}
-              className={`px-3 py-1.5 rounded-lg transition ${
+              className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-lg text-center transition ${
                 mode === 'auto'
                   ? 'bg-[#c5a059] text-slate-950 font-black shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
@@ -326,23 +326,23 @@ export default function CheckInView({ onNavigateToRegister }) {
             </button>
             <button
               onClick={() => { setMode('masuk'); focusInput(); }}
-              className={`px-3 py-1.5 rounded-lg transition ${
+              className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-lg text-center transition ${
                 mode === 'masuk'
                   ? 'bg-slate-900 text-white font-bold shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Khusus Masuk
+              Masuk
             </button>
             <button
               onClick={() => { setMode('keluar'); focusInput(); }}
-              className={`px-3 py-1.5 rounded-lg transition ${
+              className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-lg text-center transition ${
                 mode === 'keluar'
                   ? 'bg-amber-600 text-white font-bold shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Khusus Keluar
+              Keluar
             </button>
           </div>
         </div>
@@ -353,17 +353,17 @@ export default function CheckInView({ onNavigateToRegister }) {
         {/* Left Column: Fast Scanner & Result Presentation (8 cols) */}
         <div className="lg:col-span-8 space-y-6">
           {/* Scanner Input Card */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-lg bg-[#c5a059]/15 text-[#b89047] flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-[#c5a059]/15 text-[#b89047] flex items-center justify-center flex-shrink-0">
                   <Scan className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-extrabold text-slate-900">
+                  <h2 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">
                     Pemindai QR & Barcode Member
                   </h2>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-[11px] sm:text-xs text-slate-500">
                     Arahkan scanner kartu atau ketik ID/nama member lalu tekan Enter
                   </p>
                 </div>
@@ -413,15 +413,15 @@ export default function CheckInView({ onNavigateToRegister }) {
 
             {/* Scanner Input Form */}
             <form onSubmit={handleScanSubmit} className="relative">
-              <div className="flex items-center space-x-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <div className="relative flex-1">
                   <input
                     ref={inputRef}
                     type="text"
                     value={inputCode}
                     onChange={(e) => setInputCode(e.target.value)}
-                    placeholder="Scan kartu QR / ketik ID (mis: FM-2026-00001) atau No HP..."
-                    className="w-full pl-11 pr-4 py-4 text-base font-medium rounded-xl border-2 border-[#c5a059] bg-[#c5a059]/5 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-[#c5a059]/20 focus:border-[#c5a059] transition shadow-inner font-mono"
+                    placeholder="Scan QR / ketik ID member / No HP..."
+                    className="w-full pl-11 pr-4 py-3.5 sm:py-4 text-sm sm:text-base font-medium rounded-xl border-2 border-[#c5a059] bg-[#c5a059]/5 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-[#c5a059]/20 focus:border-[#c5a059] transition shadow-inner font-mono"
                     autoFocus
                   />
                   <Scan className="w-5 h-5 text-[#c5a059] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -430,7 +430,7 @@ export default function CheckInView({ onNavigateToRegister }) {
                 <button
                   type="submit"
                   disabled={loading || !inputCode.trim()}
-                  className="px-7 py-4 bg-[#c5a059] hover:bg-[#b89047] text-slate-950 font-black rounded-xl shadow-md shadow-[#c5a059]/25 transition active:scale-95 disabled:opacity-50 flex items-center space-x-2 flex-shrink-0"
+                  className="px-6 py-3.5 sm:py-4 bg-[#c5a059] hover:bg-[#b89047] text-slate-950 font-black rounded-xl shadow-md shadow-[#c5a059]/25 transition active:scale-95 disabled:opacity-50 flex items-center justify-center space-x-2 flex-shrink-0"
                 >
                   {loading ? (
                     <RefreshCw className="w-5 h-5 animate-spin" />

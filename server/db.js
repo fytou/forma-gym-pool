@@ -109,6 +109,130 @@ db.exec(`
   );
 `);
 
+// 7. POS Products & Inventory (F&B / Merchandise)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS pos_products (
+    id_produk INTEGER PRIMARY KEY AUTOINCREMENT,
+    nama_produk TEXT NOT NULL,
+    kategori TEXT NOT NULL DEFAULT 'Minuman',
+    harga_jual REAL NOT NULL,
+    harga_modal REAL NOT NULL DEFAULT 0,
+    stok INTEGER NOT NULL DEFAULT 0,
+    barcode TEXT,
+    satuan TEXT DEFAULT 'Pcs',
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now', 'localtime'))
+  );
+`);
+
+// 8. POS Transactions
+db.exec(`
+  CREATE TABLE IF NOT EXISTS pos_transactions (
+    id_transaksi_pos INTEGER PRIMARY KEY AUTOINCREMENT,
+    nomor_struk TEXT NOT NULL UNIQUE,
+    member_id TEXT,
+    nama_pembeli TEXT DEFAULT 'Umum / Non-Member',
+    total_bayar REAL NOT NULL,
+    metode_bayar TEXT NOT NULL DEFAULT 'Tunai',
+    catatan TEXT,
+    kasir_nama TEXT DEFAULT 'Staff Kasir',
+    created_at TEXT DEFAULT (datetime('now', 'localtime')),
+    FOREIGN KEY (member_id) REFERENCES members(id_member) ON DELETE SET NULL
+  );
+`);
+
+// 9. POS Transaction Items
+db.exec(`
+  CREATE TABLE IF NOT EXISTS pos_transaction_items (
+    id_item INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_transaksi_pos INTEGER NOT NULL,
+    id_produk INTEGER NOT NULL,
+    nama_produk TEXT NOT NULL,
+    qty INTEGER NOT NULL,
+    harga_satuan REAL NOT NULL,
+    subtotal REAL NOT NULL,
+    FOREIGN KEY (id_transaksi_pos) REFERENCES pos_transactions(id_transaksi_pos) ON DELETE CASCADE,
+    FOREIGN KEY (id_produk) REFERENCES pos_products(id_produk)
+  );
+`);
+
+// 10. Master Trainers (Personal Trainers)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS trainers (
+    id_trainer INTEGER PRIMARY KEY AUTOINCREMENT,
+    nama_trainer TEXT NOT NULL,
+    no_hp TEXT,
+    spesialisasi TEXT DEFAULT 'Fitness & Strength',
+    status TEXT DEFAULT 'Aktif',
+    foto TEXT,
+    created_at TEXT DEFAULT (datetime('now', 'localtime'))
+  );
+`);
+
+// 11. Member Trainer Packages (Paket PT yang diambil member)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS trainer_members (
+    id_pt_member INTEGER PRIMARY KEY AUTOINCREMENT,
+    member_id TEXT NOT NULL,
+    id_trainer INTEGER NOT NULL,
+    nama_paket_pt TEXT NOT NULL,
+    total_sesi INTEGER NOT NULL,
+    sesi_tersisa INTEGER NOT NULL,
+    biaya REAL NOT NULL DEFAULT 0,
+    tanggal_daftar TEXT DEFAULT (date('now', 'localtime')),
+    status TEXT DEFAULT 'Aktif',
+    catatan TEXT,
+    FOREIGN KEY (member_id) REFERENCES members(id_member) ON DELETE CASCADE,
+    FOREIGN KEY (id_trainer) REFERENCES trainers(id_trainer) ON DELETE CASCADE
+  );
+`);
+
+// 12. Log Sesi Trainer (Setiap kali member latihan & potong sesi)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS trainer_sessions (
+    id_sesi INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_pt_member INTEGER NOT NULL,
+    member_id TEXT NOT NULL,
+    id_trainer INTEGER NOT NULL,
+    tanggal TEXT DEFAULT (date('now', 'localtime')),
+    jam_sesi TEXT NOT NULL,
+    topik_latihan TEXT,
+    catatan_trainer TEXT,
+    FOREIGN KEY (id_pt_member) REFERENCES trainer_members(id_pt_member) ON DELETE CASCADE,
+    FOREIGN KEY (member_id) REFERENCES members(id_member) ON DELETE CASCADE,
+    FOREIGN KEY (id_trainer) REFERENCES trainers(id_trainer) ON DELETE CASCADE
+  );
+`);
+
+// 13. Fasilitas Loker
+db.exec(`
+  CREATE TABLE IF NOT EXISTS lockers (
+    id_loker INTEGER PRIMARY KEY AUTOINCREMENT,
+    nomor_loker TEXT NOT NULL UNIQUE,
+    area TEXT DEFAULT 'Loker Pria',
+    status TEXT DEFAULT 'Tersedia' CHECK(status IN ('Tersedia', 'Digunakan', 'Rusak')),
+    member_id TEXT,
+    nama_peminjam TEXT,
+    jam_pinjam TEXT,
+    keterangan TEXT,
+    FOREIGN KEY (member_id) REFERENCES members(id_member) ON DELETE SET NULL
+  );
+`);
+
+// 14. Pengeluaran & Biaya Operasional (Keuangan)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS expenses (
+    id_pengeluaran INTEGER PRIMARY KEY AUTOINCREMENT,
+    kategori TEXT NOT NULL,
+    deskripsi TEXT NOT NULL,
+    nominal REAL NOT NULL,
+    tanggal TEXT DEFAULT (date('now', 'localtime')),
+    metode_bayar TEXT DEFAULT 'Tunai',
+    pic TEXT DEFAULT 'Admin',
+    created_at TEXT DEFAULT (datetime('now', 'localtime'))
+  );
+`);
+
 // Seed default users if table is empty
 const crypto = require('crypto');
 function hashPassword(password) {
@@ -290,6 +414,101 @@ function seedDatabase() {
     insertLog.run('MEM-000104', 'Gym', todayStr, '11:00', null, 'MEMBERSHIP EXPIRED', 'Masa aktif habis sejak 10 hari lalu');
 
     console.log('Database seeded successfully!');
+  }
+
+  // 1. Ensure Hanifa Febriani exists (from Image 3 card)
+  const hanifa = db.prepare("SELECT id_member FROM members WHERE id_member = 'FM-2026-00112'").get();
+  if (!hanifa) {
+    console.log('Registering Hanifa Febriani (FM-2026-00112) for scanner demo...');
+    db.prepare(`
+      INSERT OR REPLACE INTO members (id_member, nama, no_hp, nik, foto, qr_code)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      'FM-2026-00112',
+      'Hanifa Febriani',
+      '082188990011',
+      '1403095502030142',
+      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&auto=format&fit=crop&q=80',
+      'FM-2026-00112'
+    );
+
+    // Active Monthly Pool Membership (Matching Image 3: Berlaku sampai 13 November 2026)
+    db.prepare(`
+      INSERT INTO memberships (member_id, paket_id, tanggal_mulai, tanggal_berakhir, status_pembayaran)
+      VALUES (?, 2, '2026-10-13', '2026-11-13', 'Lunas')
+    `).run('FM-2026-00112');
+  }
+
+  // 2. Seed POS Products if empty
+  const posCount = db.prepare('SELECT COUNT(*) as count FROM pos_products').get().count;
+  if (posCount === 0) {
+    console.log('Seeding initial POS items (Minuman, Roti, Handuk, etc.)...');
+    const insertProd = db.prepare(`
+      INSERT INTO pos_products (nama_produk, kategori, harga_jual, harga_modal, stok, barcode, satuan)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    insertProd.run('Le Minerale 600ml', 'Minuman', 5000, 3000, 48, '899123450001', 'Botol');
+    insertProd.run('Pocari Sweat 500ml', 'Minuman', 9000, 6500, 30, '899123450002', 'Botol');
+    insertProd.run('Hydro Coco 330ml', 'Minuman', 8000, 5500, 24, '899123450003', 'Kotak');
+    insertProd.run('Roti Sari Roti Cokelat', 'Makanan', 7000, 5000, 20, '899123450004', 'Bungkus');
+    insertProd.run('Fitbar Chocolate', 'Makanan', 6500, 4500, 35, '899123450005', 'Bungkus');
+    insertProd.run('Handuk Olahraga FORMA', 'Merchandise', 35000, 20000, 15, '899123450006', 'Pcs');
+    insertProd.run('Whey Protein Sachet 30g', 'Suplemen', 25000, 18000, 40, '899123450007', 'Sachet');
+    insertProd.run('Shaker Bottle 700ml', 'Merchandise', 45000, 28000, 12, '899123450008', 'Pcs');
+  }
+
+  // 3. Seed Trainers if empty
+  const trainerCount = db.prepare('SELECT COUNT(*) as count FROM trainers').get().count;
+  if (trainerCount === 0) {
+    console.log('Seeding Master Trainers...');
+    const insertTrainer = db.prepare(`
+      INSERT INTO trainers (nama_trainer, no_hp, spesialisasi, status, foto)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    insertTrainer.run('Coach Randy Kurniawan', '08123456701', 'Bodybuilding & Hypertrophy', 'Aktif', 'https://images.unsplash.com/photo-1567013127542-490d757e51fc?w=200');
+    insertTrainer.run('Coach Sarah Bella', '08123456702', 'Fat Loss & HIIT Conditioning', 'Aktif', 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200');
+    insertTrainer.run('Coach Dimas Wahyu', '08123456703', 'Renang & Stamina Atlet', 'Aktif', 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200');
+
+    // Assign sample PT member
+    const insertPTMember = db.prepare(`
+      INSERT INTO trainer_members (member_id, id_trainer, nama_paket_pt, total_sesi, sesi_tersisa, biaya, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    insertPTMember.run('MEM-000101', 1, '10 Sesi PT Personal Strength', 10, 8, 1200000, 'Aktif');
+    insertPTMember.run('MEM-000103', 2, '5 Sesi PT Fat Loss Intensive', 5, 4, 700000, 'Aktif');
+  }
+
+  // 4. Seed Lockers if empty
+  const lockerCount = db.prepare('SELECT COUNT(*) as count FROM lockers').get().count;
+  if (lockerCount === 0) {
+    console.log('Seeding Lockers...');
+    const insertLocker = db.prepare(`
+      INSERT INTO lockers (nomor_loker, area, status, member_id, nama_peminjam, jam_pinjam)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    for (let i = 1; i <= 10; i++) {
+      const no = `A-${String(i).padStart(2, '0')}`;
+      if (i === 1) {
+        insertLocker.run(no, 'Loker Pria', 'Digunakan', 'MEM-000106', 'Rizky Pratama', '13:30');
+      } else if (i === 2) {
+        insertLocker.run(no, 'Loker Pria', 'Digunakan', 'MEM-000105', 'Dewi Lestari', '14:15');
+      } else {
+        insertLocker.run(no, 'Loker Pria', 'Tersedia', null, null, null);
+      }
+    }
+    for (let i = 1; i <= 10; i++) {
+      const no = `B-${String(i).padStart(2, '0')}`;
+      insertLocker.run(no, 'Loker Wanita', 'Tersedia', null, null, null);
+    }
+  }
+
+  // 5. Seed sample expense if empty
+  const expCount = db.prepare('SELECT COUNT(*) as count FROM expenses').get().count;
+  if (expCount === 0) {
+    db.prepare(`
+      INSERT INTO expenses (kategori, deskripsi, nominal, pic)
+      VALUES ('Operasional', 'Restock Le Minerale 2 Dus & Roti', 180000, 'Staff Kasir')
+    `).run();
   }
 }
 

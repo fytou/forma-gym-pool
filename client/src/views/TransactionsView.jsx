@@ -1,12 +1,21 @@
-import React, { useState, useEffect } from 'react';
 import { 
   Receipt, Wallet, RefreshCw, Calendar, Search, Filter, 
   ChevronLeft, ChevronRight, User, ArrowDownRight, CreditCard,
-  TrendingUp, Download, Eye, CheckCircle2
+  TrendingUp, Download, Eye, CheckCircle2, DollarSign, Plus, ArrowUpRight, ShoppingBag, Dumbbell, X
 } from 'lucide-react';
-import { getTransactions, formatRupiah, formatDateIndo } from '../utils/api';
+import { getTransactions, formatRupiah, formatDateIndo, getFinanceSummary, addExpense } from '../utils/api';
 
 export default function TransactionsView() {
+  const [activeFinanceTab, setActiveFinanceTab] = useState('summary'); // 'summary' or 'memberships'
+  const [financeSummary, setFinanceSummary] = useState(null);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [expenseForm, setExpenseForm] = useState({
+    kategori: 'Operasional',
+    deskripsi: '',
+    nominal: '',
+    metode_bayar: 'Tunai'
+  });
+
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -31,6 +40,31 @@ export default function TransactionsView() {
 
   // Selected member detail modal for complaint / verification
   const [selectedTx, setSelectedTx] = useState(null);
+
+  const fetchFinanceSummary = async () => {
+    try {
+      const res = await getFinanceSummary();
+      if (res.success) setFinanceSummary(res.data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleAddExpense = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await addExpense(expenseForm);
+      if (res.success) {
+        setShowExpenseModal(false);
+        setExpenseForm({ kategori: 'Operasional', deskripsi: '', nominal: '', metode_bayar: 'Tunai' });
+        fetchFinanceSummary();
+      } else {
+        alert(res.message);
+      }
+    } catch (e) {
+      alert('Gagal menambah pengeluaran');
+    }
+  };
 
   const fetchTransactionsData = async () => {
     setLoading(true);
@@ -68,6 +102,7 @@ export default function TransactionsView() {
 
   useEffect(() => {
     fetchTransactionsData();
+    fetchFinanceSummary();
   }, [page, jenis, filterPeriod, selectedMonth, selectedYear]);
 
   // Handle Search submit
@@ -107,25 +142,98 @@ export default function TransactionsView() {
             <span className="text-[11px] font-bold tracking-widest uppercase">Keuangan & Rekap Pembayaran</span>
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            Laporan Transaksi & Riwayat Pendapatan
+            Laporan Keuangan & Arus Kas Gym
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Pantau arus kas pendapatan bulanan, verifikasi pembayaran member, dan bukti riwayat komplain.
+            Rekapitulasi pemasukan member, POS kasir, trainer (PT), dan pengeluaran operasional
           </p>
         </div>
 
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowExpenseModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Catat Pengeluaran</span>
+          </button>
+          <button
+            onClick={() => {
+              setPage(1);
+              fetchTransactionsData();
+              fetchFinanceSummary();
+            }}
+            className="flex items-center space-x-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition shadow-sm"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-[#c5a059] ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Financial Overview Cards (Consolidated from All Modules!) */}
+      {financeSummary && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <span className="text-[11px] font-bold text-slate-500 uppercase">Omzet Member Gym</span>
+            <div className="text-lg font-black text-slate-900 font-mono mt-1">
+              {formatRupiah(financeSummary.total_member_income)}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Pendaftaran & Perpanjangan</div>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <span className="text-[11px] font-bold text-slate-500 uppercase">Penjualan POS Kasir</span>
+            <div className="text-lg font-black text-slate-900 font-mono mt-1">
+              {formatRupiah(financeSummary.total_pos_income)}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Minuman, F&B, Merchandise</div>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <span className="text-[11px] font-bold text-slate-500 uppercase">Paket Trainer (PT)</span>
+            <div className="text-lg font-black text-slate-900 font-mono mt-1">
+              {formatRupiah(financeSummary.total_pt_income)}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Personal Coaching Member</div>
+          </div>
+
+          <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-sm text-white">
+            <span className="text-[11px] font-bold text-[#dfc185] uppercase">Total Keuntungan Bersih</span>
+            <div className="text-xl font-black text-[#dfc185] font-mono mt-1">
+              {formatRupiah(financeSummary.net_profit)}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Setelah dikurangi beban operasional</div>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="flex items-center space-x-2 border-b border-slate-200 pb-2">
         <button
-          onClick={() => {
-            setPage(1);
-            fetchTransactionsData();
-          }}
-          className="flex items-center space-x-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition self-start sm:self-auto shadow-sm"
+          onClick={() => setActiveFinanceTab('summary')}
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition ${
+            activeFinanceTab === 'summary'
+              ? 'bg-slate-900 text-[#dfc185] shadow'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
         >
-          <RefreshCw className={`w-3.5 h-3.5 text-[#c5a059] ${loading ? 'animate-spin' : ''}`} />
-          <span>Refresh Data</span>
+          Semua Transaksi Member ({totalCount})
+        </button>
+        <button
+          onClick={() => setActiveFinanceTab('expenses')}
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition ${
+            activeFinanceTab === 'expenses'
+              ? 'bg-slate-900 text-[#dfc185] shadow'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          Pengeluaran Operasional ({financeSummary?.expenses?.length || 0})
         </button>
       </div>
 
+      {activeFinanceTab === 'summary' && (
+        <>
       {/* Summary Cards (Dynamic by Period Filter!) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-[#c5a059]/50 shadow-sm bg-gradient-to-br from-white via-white to-[#c5a059]/15">
@@ -434,6 +542,8 @@ export default function TransactionsView() {
           </>
         )}
       </div>
+      </>
+      )}
 
       {/* Modal Detail Bukti Transaksi Member (Solusi Komplain Pembayaran) */}
       {selectedTx && (
@@ -508,6 +618,142 @@ export default function TransactionsView() {
                 Tutup Bukti Transaksi
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* EXPENSES TAB VIEW */}
+      {activeFinanceTab === 'expenses' && (
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-black text-slate-900 text-sm uppercase">Daftar Beban & Pengeluaran Operasional</h3>
+            <button
+              onClick={() => setShowExpenseModal(true)}
+              className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition"
+            >
+              + Catat Pengeluaran Baru
+            </button>
+          </div>
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase text-[10px]">
+              <tr>
+                <th className="p-3.5">Tanggal</th>
+                <th className="p-3.5">Kategori</th>
+                <th className="p-3.5">Deskripsi / Keperluan</th>
+                <th className="p-3.5">Metode</th>
+                <th className="p-3.5">PIC</th>
+                <th className="p-3.5 text-right">Nominal</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {financeSummary?.expenses?.map((e) => (
+                <tr key={e.id_pengeluaran} className="hover:bg-slate-50/60">
+                  <td className="p-3.5 font-mono text-slate-700">{e.tanggal}</td>
+                  <td className="p-3.5">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                      {e.kategori}
+                    </span>
+                  </td>
+                  <td className="p-3.5 font-bold text-slate-900">{e.deskripsi}</td>
+                  <td className="p-3.5 text-slate-600">{e.metode_bayar}</td>
+                  <td className="p-3.5 text-slate-500">{e.pic}</td>
+                  <td className="p-3.5 font-mono font-black text-rose-600 text-right">
+                    - {formatRupiah(e.nominal)}
+                  </td>
+                </tr>
+              ))}
+              {(!financeSummary?.expenses || financeSummary.expenses.length === 0) && (
+                <tr>
+                  <td colSpan="6" className="p-8 text-center text-slate-400">Belum ada catatan pengeluaran</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* MODAL CATAT PENGELUARAN */}
+      {showExpenseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <h3 className="font-black text-slate-900 text-base">Catat Pengeluaran Operasional</h3>
+              <button onClick={() => setShowExpenseModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddExpense} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Kategori Beban</label>
+                <select
+                  value={expenseForm.kategori}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, kategori: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                >
+                  <option value="Operasional">Operasional Gym</option>
+                  <option value="Restock POS">Restock Barang Kasir (Minuman/F&B)</option>
+                  <option value="Perawatan Alat">Perawatan & Servis Mesin Fitness</option>
+                  <option value="Kebersihan & Kolam">Kimia Kolam Renang & Sanitasi</option>
+                  <option value="Gaji / Komisi">Komisi Trainer & Gaji Staff</option>
+                  <option value="Listrik & Air">Listrik, Air & Internet</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Deskripsi / Keperluan</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Beli kaporit kolam renang 1 pail"
+                  value={expenseForm.deskripsi}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, deskripsi: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Nominal (Rp)</label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="Nominal"
+                    value={expenseForm.nominal}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, nominal: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Metode Bayar</label>
+                  <select
+                    value={expenseForm.metode_bayar}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, metode_bayar: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                  >
+                    <option value="Tunai">Tunai Kas Kecil</option>
+                    <option value="Transfer Bank">Transfer Bank</option>
+                    <option value="QRIS">QRIS</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowExpenseModal(false)}
+                  className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black shadow"
+                >
+                  Simpan Beban
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

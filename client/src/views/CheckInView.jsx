@@ -64,24 +64,64 @@ export default function CheckInView({ onNavigateToRegister }) {
     return () => clearInterval(timer);
   }, []);
 
-  // Keyboard shortcut listener: F1 for Gym, F2 for Pool, Escape to clear
+  // Global Barcode Scanner Listener: Buffers rapid keypresses from hardware laser scanners
   useEffect(() => {
+    let barcodeBuffer = '';
+    let lastKeyTime = Date.now();
+
     const handleKeyDown = (e) => {
+      // Functional shortcuts
       if (e.key === 'F1') {
         e.preventDefault();
         setSelectedFacility('Gym');
+        return;
       } else if (e.key === 'F2') {
         e.preventDefault();
         setSelectedFacility('Pool');
+        return;
       } else if (e.key === 'Escape') {
         setScanResult(null);
         setInputCode('');
+        barcodeBuffer = '';
         focusInput();
+        return;
+      }
+
+      // If user is currently typing in an input or textarea that is NOT the scanner input, don't hijack
+      const activeEl = document.activeElement;
+      const isInputActive = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+
+      const currentTime = Date.now();
+      const diff = currentTime - lastKeyTime;
+      lastKeyTime = currentTime;
+
+      // Enter key: indicates barcode scanner completed transmission
+      if (e.key === 'Enter') {
+        if (barcodeBuffer.length >= 3 && !isInputActive) {
+          e.preventDefault();
+          const scannedCode = barcodeBuffer.trim();
+          barcodeBuffer = '';
+          setInputCode('');
+          executeScan(scannedCode);
+        } else {
+          barcodeBuffer = '';
+        }
+        return;
+      }
+
+      // Hardware scanners typically send keys with < 40ms interval
+      if (diff > 120) {
+        barcodeBuffer = '';
+      }
+
+      if (e.key.length === 1) {
+        barcodeBuffer += e.key;
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [selectedFacility, mode]);
 
   async function loadOccupancy() {
     try {

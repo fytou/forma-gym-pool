@@ -691,15 +691,23 @@ app.post('/api/checkin/scan', (req, res) => {
       return res.status(400).json({ success: false, message: 'Kode QR / ID Member belum diinput' });
     }
 
-    const cleanCode = code.trim();
+    let rawCode = code.trim();
+    // In case scanner scanned a full URL (e.g. https://.../FM-2026-00112)
+    if (rawCode.includes('/')) {
+      const parts = rawCode.split('/');
+      rawCode = parts[parts.length - 1];
+    }
+    // Clean any whitespace, non-printable characters or Carriage Return (\r, \n)
+    const cleanCode = rawCode.replace(/[\r\n\t]/g, '').trim();
+    const upperCode = cleanCode.toUpperCase();
     const todayStr = new Date().toISOString().split('T')[0];
     const nowTimeStr = new Date().toTimeString().split(' ')[0].substring(0, 5); // HH:mm
 
-    // Find member by qr_code OR id_member OR phone
+    // Find member by qr_code OR id_member (case-insensitive) OR phone
     let memberRow = db.prepare(`
       SELECT id_member FROM members 
-      WHERE qr_code = ? OR id_member = ? OR no_hp = ?
-    `).get(cleanCode, cleanCode, cleanCode);
+      WHERE UPPER(qr_code) = ? OR UPPER(id_member) = ? OR no_hp = ? OR qr_code = ? OR id_member = ?
+    `).get(upperCode, upperCode, cleanCode, cleanCode, cleanCode);
 
     if (!memberRow) {
       return res.status(404).json({
@@ -1041,6 +1049,419 @@ app.get('/api/transactions', (req, res) => {
       page: Number(page) || 1,
       limit: numLimit
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ==========================================
+// 8. POS (POINT OF SALE) KASIR ENDPOINTS
+// ==========================================
+
+// Get All POS Products
+app.get('/api/pos/products', (req, res) => {
+  try {
+    const products = db.prepare('SELECT * FROM pos_products WHERE is_active = 1 ORDER BY kategori ASC, nama_produk ASC').all();
+    res.json({ success: true, data: products });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Create POS Product
+app.post('/api/pos/products', authenticateToken, (req, res) => {
+  try {
+    const { nama_produk, kategori, harga_jual, harga_modal, stok, barcode, satuan } = req.body;
+    if (!nama_produk || harga_jual === undefined) {
+      return res.status(400).json({ success: false, message: 'Nama produk dan harga jual wajib diisi' });
+    }
+    const insert = db.prepare(`
+      INSERT INTO pos_products (nama_produk, kategori, harga_jual, harga_modal, stok, barcode, satuan)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    insert.run(
+      nama_produk.trim(),
+      kategori || 'Minuman',
+      Number(harga_jual),
+      Number(harga_modal || 0),
+      Number(stok || 0),
+      barcode ? barcode.trim() : null,
+      satuan || 'Pcs'
+    );
+    res.json({ success: true, message: 'Produk berhasil ditambahkan' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Update POS Product
+app.put('/api/pos/products/:id', authenticateToken, (req, res) => {
+  try {
+    const { nama_produk, kategori, harga_jual, harga_modal, stok, barcode, satuan } = req.body;
+    db.prepare(`
+      UPDATE pos_products 
+      SET nama_produk = ?, kategori = ?, harga_jual = ?, harga_modal = ?, stok = ?, barcode = ?, satuan = ?
+      WHERE id_produk = ?
+    `).run(
+      nama_produk.trim(),
+      kategori || 'Minuman',
+      Number(harga_jual),
+      Number(harga_modal || 0),
+      Number(stok || 0),
+      barcode ? barcode.trim() : null,
+      satuan || 'Pcs',
+      req.params.id
+    );
+    res.json({ success: true, message: 'Produk berhasil diperbarui' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Delete (Deactivate) POS Product
+app.delete('/api/pos/products/:id', authenticateToken, (req, res) => {
+  try {
+    db.prepare('UPDATE pos_products SET is_active = 0 WHERE id_produk = ?').run(req.params.id);
+    res.json({ success: true, message: 'Produk berhasil dinonaktifkan' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Create POS Transaction (Checkout Kasir)
+app.post('/api/pos/checkout', authenticateToken, (req, res) => {
+  try {
+    const { items, member_id, nama_pembeli, metode_bayar, catatan } = req.body;
+    if (!items || !items.length) {
+      return res.status(400).json({ success: false, message: 'Keranjang belanja masih kosong' });
+    }
+
+    const nomorStruk = `STRUK-${Date.now().toString().slice(-8)}`;
+    let totalBayar = 0;
+
+    // Validate stock and calculate total
+    for (const item of items) {
+      const prod = db.prepare('SELECT * FROM pos_products WHERE id_produk = ?').get(item.id_produk);
+      if (!prod) {
+        return res.status(400).json({ success: false, message: `Produk ID ${item.id_produk} tidak ditemukan` });
+      }
+      if (prod.stok < item.qty) {
+        return res.status(400).json({ success: false, message: `Stok untuk ${prod.nama_produk} tidak mencukupi (sisa ${prod.stok})` });
+      }
+      totalBayar += Number(item.harga_satuan) * Number(item.qty);
+    }
+
+    const kasirNama = req.user ? (req.user.nama_lengkap || req.user.username) : 'Staff Kasir';
+
+    // Insert transaction
+    db.prepare(`
+      INSERT INTO pos_transactions (nomor_struk, member_id, nama_pembeli, total_bayar, metode_bayar, catatan, kasir_nama)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      nomorStruk,
+      member_id || null,
+      nama_pembeli || 'Umum / Non-Member',
+      totalBayar,
+      metode_bayar || 'Tunai',
+      catatan || '',
+      kasirNama
+    );
+
+    const posTrx = db.prepare('SELECT id_transaksi_pos FROM pos_transactions WHERE nomor_struk = ?').get(nomorStruk);
+
+    // Insert items & deduct stock
+    const insertItem = db.prepare(`
+      INSERT INTO pos_transaction_items (id_transaksi_pos, id_produk, nama_produk, qty, harga_satuan, subtotal)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    const updateStok = db.prepare('UPDATE pos_products SET stok = stok - ? WHERE id_produk = ?');
+
+    for (const item of items) {
+      const subtotal = Number(item.harga_satuan) * Number(item.qty);
+      insertItem.run(posTrx.id_transaksi_pos, item.id_produk, item.nama_produk, item.qty, item.harga_satuan, subtotal);
+      updateStok.run(item.qty, item.id_produk);
+    }
+
+    res.json({
+      success: true,
+      message: 'Transaksi kasir berhasil disimpan!',
+      nomor_struk: nomorStruk,
+      total_bayar: totalBayar
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Get POS Sales History
+app.get('/api/pos/history', authenticateToken, (req, res) => {
+  try {
+    const history = db.prepare(`
+      SELECT pt.*, 
+        (SELECT COUNT(*) FROM pos_transaction_items pti WHERE pti.id_transaksi_pos = pt.id_transaksi_pos) as item_count
+      FROM pos_transactions pt
+      ORDER BY pt.id_transaksi_pos DESC LIMIT 50
+    `).all();
+    res.json({ success: true, data: history });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+// ==========================================
+// 9. TRAINER & PT ENDPOINTS
+// ==========================================
+
+// Get all trainers
+app.get('/api/trainers', (req, res) => {
+  try {
+    const trainers = db.prepare('SELECT * FROM trainers ORDER BY id_trainer ASC').all();
+    res.json({ success: true, data: trainers });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Add new trainer
+app.post('/api/trainers', authenticateToken, (req, res) => {
+  try {
+    const { nama_trainer, no_hp, spesialisasi, foto } = req.body;
+    if (!nama_trainer) return res.status(400).json({ success: false, message: 'Nama trainer wajib diisi' });
+
+    db.prepare(`
+      INSERT INTO trainers (nama_trainer, no_hp, spesialisasi, foto)
+      VALUES (?, ?, ?, ?)
+    `).run(nama_trainer.trim(), no_hp || '', spesialisasi || 'Fitness & Strength', foto || '');
+
+    res.json({ success: true, message: 'Trainer berhasil ditambahkan' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Get all PT members
+app.get('/api/trainers/members', (req, res) => {
+  try {
+    const list = db.prepare(`
+      SELECT tm.*, m.nama as nama_member, m.no_hp as member_no_hp, m.foto as member_foto, t.nama_trainer
+      FROM trainer_members tm
+      JOIN members m ON tm.member_id = m.id_member
+      JOIN trainers t ON tm.id_trainer = t.id_trainer
+      ORDER BY tm.id_pt_member DESC
+    `).all();
+    res.json({ success: true, data: list });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Register member to trainer
+app.post('/api/trainers/members', authenticateToken, (req, res) => {
+  try {
+    const { member_id, id_trainer, nama_paket_pt, total_sesi, biaya, catatan } = req.body;
+    if (!member_id || !id_trainer || !total_sesi) {
+      return res.status(400).json({ success: false, message: 'Member, trainer, dan total sesi wajib diisi' });
+    }
+
+    db.prepare(`
+      INSERT INTO trainer_members (member_id, id_trainer, nama_paket_pt, total_sesi, sesi_tersisa, biaya, catatan)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      member_id,
+      Number(id_trainer),
+      nama_paket_pt || `${total_sesi} Sesi Personal Trainer`,
+      Number(total_sesi),
+      Number(total_sesi),
+      Number(biaya || 0),
+      catatan || ''
+    );
+
+    res.json({ success: true, message: 'Pendaftaran paket Personal Trainer berhasil!' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Check-in / Potong Sesi PT
+app.post('/api/trainers/checkin-session', authenticateToken, (req, res) => {
+  try {
+    const { id_pt_member, topik_latihan, catatan_trainer } = req.body;
+    const ptMember = db.prepare('SELECT * FROM trainer_members WHERE id_pt_member = ?').get(id_pt_member);
+    if (!ptMember) {
+      return res.status(404).json({ success: false, message: 'Data PT Member tidak ditemukan' });
+    }
+    if (ptMember.sesi_tersisa <= 0) {
+      return res.status(400).json({ success: false, message: 'Sesi latihan sudah habis!' });
+    }
+
+    const nowTimeStr = new Date().toTimeString().split(' ')[0].substring(0, 5);
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Log session
+    db.prepare(`
+      INSERT INTO trainer_sessions (id_pt_member, member_id, id_trainer, tanggal, jam_sesi, topik_latihan, catatan_trainer)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id_pt_member,
+      ptMember.member_id,
+      ptMember.id_trainer,
+      todayStr,
+      nowTimeStr,
+      topik_latihan || 'Latihan Rutin',
+      catatan_trainer || ''
+    );
+
+    // Deduct 1 session
+    const newRemaining = ptMember.sesi_tersisa - 1;
+    db.prepare(`
+      UPDATE trainer_members
+      SET sesi_tersisa = ?, status = ?
+      WHERE id_pt_member = ?
+    `).run(newRemaining, newRemaining === 0 ? 'Selesai' : 'Aktif', id_pt_member);
+
+    res.json({
+      success: true,
+      message: `Sesi PT berhasil di-checkin! Sisa sesi: ${newRemaining}`
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Get Sessions History
+app.get('/api/trainers/sessions', (req, res) => {
+  try {
+    const sessions = db.prepare(`
+      SELECT ts.*, m.nama as nama_member, t.nama_trainer
+      FROM trainer_sessions ts
+      JOIN members m ON ts.member_id = m.id_member
+      JOIN trainers t ON ts.id_trainer = t.id_trainer
+      ORDER BY ts.id_sesi DESC LIMIT 50
+    `).all();
+    res.json({ success: true, data: sessions });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+// ==========================================
+// 10. FASILITAS LOKER ENDPOINTS
+// ==========================================
+
+// Get All Lockers
+app.get('/api/lockers', (req, res) => {
+  try {
+    const lockers = db.prepare('SELECT * FROM lockers ORDER BY nomor_loker ASC').all();
+    res.json({ success: true, data: lockers });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Pinjam Loker
+app.post('/api/lockers/borrow', authenticateToken, (req, res) => {
+  try {
+    const { id_loker, member_id, nama_peminjam, keterangan } = req.body;
+    const locker = db.prepare('SELECT * FROM lockers WHERE id_loker = ?').get(id_loker);
+    if (!locker) return res.status(404).json({ success: false, message: 'Loker tidak ditemukan' });
+    if (locker.status !== 'Tersedia') return res.status(400).json({ success: false, message: 'Loker sedang tidak tersedia' });
+
+    const nowTimeStr = new Date().toTimeString().split(' ')[0].substring(0, 5);
+
+    db.prepare(`
+      UPDATE lockers
+      SET status = 'Digunakan', member_id = ?, nama_peminjam = ?, jam_pinjam = ?, keterangan = ?
+      WHERE id_loker = ?
+    `).run(member_id || null, nama_peminjam || 'Member', nowTimeStr, keterangan || '', id_loker);
+
+    res.json({ success: true, message: `Loker ${locker.nomor_loker} berhasil dipinjamkan` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Kembalikan Kunci Loker
+app.post('/api/lockers/return', authenticateToken, (req, res) => {
+  try {
+    const { id_loker } = req.body;
+    db.prepare(`
+      UPDATE lockers
+      SET status = 'Tersedia', member_id = null, nama_peminjam = null, jam_pinjam = null, keterangan = null
+      WHERE id_loker = ?
+    `).run(id_loker);
+
+    res.json({ success: true, message: 'Kunci loker telah dikembalikan & loker kembali tersedia' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Set Loker Rusak / Maintenance
+app.post('/api/lockers/maintenance', authenticateToken, (req, res) => {
+  try {
+    const { id_loker, status, keterangan } = req.body;
+    db.prepare(`
+      UPDATE lockers
+      SET status = ?, member_id = null, nama_peminjam = null, jam_pinjam = null, keterangan = ?
+      WHERE id_loker = ?
+    `).run(status || 'Rusak', keterangan || 'Dalam Perbaikan', id_loker);
+
+    res.json({ success: true, message: 'Status loker berhasil diubah' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+// ==========================================
+// 11. LAPORAN KEUANGAN & ARUS KAS LENGKAP
+// ==========================================
+
+// Get Financial Summary (Membership + POS + PT - Expenses)
+app.get('/api/finance/summary', authenticateToken, requireRole(['superadmin']), (req, res) => {
+  try {
+    const totalMemberIncome = db.prepare('SELECT COALESCE(SUM(jumlah_bayar), 0) as total FROM transactions').get().total;
+    const totalPosIncome = db.prepare('SELECT COALESCE(SUM(total_bayar), 0) as total FROM pos_transactions').get().total;
+    const totalPTIncome = db.prepare('SELECT COALESCE(SUM(biaya), 0) as total FROM trainer_members').get().total;
+    const totalExpenses = db.prepare('SELECT COALESCE(SUM(nominal), 0) as total FROM expenses').get().total;
+
+    const netProfit = (totalMemberIncome + totalPosIncome + totalPTIncome) - totalExpenses;
+
+    const recentExpenses = db.prepare('SELECT * FROM expenses ORDER BY id_pengeluaran DESC LIMIT 20').all();
+
+    res.json({
+      success: true,
+      data: {
+        total_member_income: totalMemberIncome,
+        total_pos_income: totalPosIncome,
+        total_pt_income: totalPTIncome,
+        total_expenses: totalExpenses,
+        total_gross_income: totalMemberIncome + totalPosIncome + totalPTIncome,
+        net_profit: netProfit,
+        expenses: recentExpenses
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Add Expense
+app.post('/api/finance/expenses', authenticateToken, requireRole(['superadmin']), (req, res) => {
+  try {
+    const { kategori, deskripsi, nominal, metode_bayar } = req.body;
+    if (!kategori || !deskripsi || !nominal) {
+      return res.status(400).json({ success: false, message: 'Kategori, deskripsi, dan nominal wajib diisi' });
+    }
+    const pic = req.user ? (req.user.nama_lengkap || req.user.username) : 'Admin';
+    db.prepare(`
+      INSERT INTO expenses (kategori, deskripsi, nominal, metode_bayar, pic)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(kategori, deskripsi.trim(), Number(nominal), metode_bayar || 'Tunai', pic);
+
+    res.json({ success: true, message: 'Pengeluaran berhasil dicatat' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

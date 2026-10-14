@@ -259,5 +259,197 @@ export async function deleteUser(id) {
   return res.json();
 }
 
+// ==========================================
+// POS / KASIR API
+// ==========================================
+export async function getPosProducts() {
+  const res = await fetch(`${API_BASE}/pos/products`);
+  return res.json();
+}
+
+export async function addPosProduct(productData) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/pos/products`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(productData)
+  });
+  return res.json();
+}
+
+export async function updatePosProduct(id, productData) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/pos/products/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(productData)
+  });
+  return res.json();
+}
+
+export async function deletePosProduct(id) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/pos/products/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  return res.json();
+}
+
+export async function checkoutPos(orderData) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/pos/checkout`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(orderData)
+  });
+  return res.json();
+}
+
+export async function getPosHistory() {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/pos/history`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  return res.json();
+}
+
+// ==========================================
+// TRAINER / PT API
+// ==========================================
+export async function getTrainers() {
+  const res = await fetch(`${API_BASE}/trainers`);
+  return res.json();
+}
+
+export async function addTrainer(trainerData) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/trainers`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(trainerData)
+  });
+  return res.json();
+}
+
+export async function getTrainerMembers() {
+  const res = await fetch(`${API_BASE}/trainers/members`);
+  return res.json();
+}
+
+export async function registerTrainerMember(data) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/trainers/members`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(data)
+  });
+  return res.json();
+}
+
+export async function checkinTrainerSession(data) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/trainers/checkin-session`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(data)
+  });
+  return res.json();
+}
+
+export async function getTrainerSessions() {
+  const res = await fetch(`${API_BASE}/trainers/sessions`);
+  return res.json();
+}
+
+// ==========================================
+// FASILITAS LOKER API
+// ==========================================
+export async function getLockers() {
+  const res = await fetch(`${API_BASE}/lockers`);
+  return res.json();
+}
+
+export async function borrowLocker(data) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/lockers/borrow`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(data)
+  });
+  return res.json();
+}
+
+export async function returnLocker(id_loker) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/lockers/return`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ id_loker })
+  });
+  return res.json();
+}
+
+export async function maintenanceLocker(data) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/lockers/maintenance`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(data)
+  });
+  return res.json();
+}
+
+// ==========================================
+// KEUANGAN / FINANCE API
+// ==========================================
+export async function getFinanceSummary() {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/finance/summary`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  return res.json();
+}
+
+export async function addExpense(data) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/finance/expenses`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(data)
+  });
+  return res.json();
+}
+
 
 

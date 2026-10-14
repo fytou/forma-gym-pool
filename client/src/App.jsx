@@ -9,6 +9,9 @@ import LogsView from './views/LogsView';
 import TransactionsView from './views/TransactionsView';
 import UsersView from './views/UsersView';
 import LoginView from './views/LoginView';
+import PosKasirView from './views/PosKasirView';
+import TrainerView from './views/TrainerView';
+import LokerView from './views/LokerView';
 import { getStoredUser, setStoredUser, getAuthToken, setAuthToken, getMe, logoutUser } from './utils/api';
 
 export default function App() {
@@ -101,6 +104,18 @@ export default function App() {
           <CheckInView
             onNavigateToRegister={() => setActiveTab('register')}
           />
+        )}
+
+        {activeTab === 'pos' && (
+          <PosKasirView />
+        )}
+
+        {activeTab === 'trainer' && (
+          <TrainerView />
+        )}
+
+        {activeTab === 'loker' && (
+          <LokerView />
         )}
 
         {activeTab === 'dashboard' && (

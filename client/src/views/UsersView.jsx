@@ -97,19 +97,19 @@ export default function UsersView() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner & Header */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <div className="space-y-5">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center space-x-2 text-[#c5a059] mb-1">
-            <Shield className="w-5 h-5" />
-            <span className="text-xs font-bold tracking-widest uppercase">Kelola Akun Akses Kasir & Staf</span>
+          <div className="flex items-center space-x-2 text-[#c5a059] mb-0.5">
+            <Shield className="w-4 h-4" />
+            <span className="text-[11px] font-bold tracking-widest uppercase">Hak Akses & Pengguna</span>
           </div>
-          <h2 className="text-xl font-black text-white tracking-tight">
-            Manajemen Akun Staf & Front Desk
-          </h2>
-          <p className="text-xs text-slate-400 mt-1 max-w-xl">
-            Sebagai Superadmin, Anda dapat membuatkan username & password khusus untuk setiap kasir atau staf front desk baru yang bertugas.
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+            Manajemen Akun Staf & Kasir
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Kelola akun login khusus kasir front desk dan administrator sistem FORMA
           </p>
         </div>
 
@@ -118,10 +118,10 @@ export default function UsersView() {
             setErrorMsg('');
             setShowAddModal(true);
           }}
-          className="flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-xs bg-[#c5a059] text-slate-950 hover:bg-[#b89047] active:scale-95 transition shadow-lg shadow-[#c5a059]/20"
+          className="flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-xs bg-[#c5a059] text-slate-950 hover:bg-[#b89047] active:scale-95 transition shadow-md shadow-[#c5a059]/20 self-start sm:self-auto"
         >
           <UserPlus className="w-4 h-4" />
-          <span>Tambah Akun Kasir Baru</span>
+          <span>+ Tambah Akun Kasir Baru</span>
         </button>
       </div>
 

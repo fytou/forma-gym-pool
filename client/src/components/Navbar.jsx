@@ -66,7 +66,7 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onLogout 
           </div>
 
           {/* Nav links (Clean desktop navigation) */}
-          <nav className="hidden xl:flex items-center space-x-0.5 2xl:space-x-1 flex-1 justify-center px-1">
+          <nav className="hidden 2xl:flex items-center space-x-1 flex-1 justify-center px-2">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -74,7 +74,7 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onLogout 
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center space-x-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+                  className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
                     isActive
                       ? 'bg-[#c5a059] text-slate-950 font-bold shadow-sm'
                       : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
@@ -88,7 +88,7 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onLogout 
           </nav>
 
           {/* User profile, Role badge, & Logout */}
-          <div className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
+          <div className="flex items-center space-x-2 flex-shrink-0">
             {/* Clock (Only visible on wide screen) */}
             <div className="text-right hidden 2xl:block pr-2">
               <div className="text-xs font-bold text-slate-200 font-mono leading-none">
@@ -100,14 +100,14 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onLogout 
             </div>
 
             {/* Current User Badge */}
-            <div className="flex items-center space-x-1.5 bg-slate-800/90 border border-slate-700/80 px-2 py-1 rounded-xl">
+            <div className="flex items-center space-x-1.5 bg-slate-800/90 border border-slate-700/80 px-2.5 py-1 rounded-xl">
               <div className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs ${
                 userRole === 'superadmin' ? 'bg-[#c5a059] text-slate-950' : 'bg-slate-700 text-[#dfc185]'
               }`}>
                 {userRole === 'superadmin' ? <Shield className="w-3.5 h-3.5" /> : <CreditCard className="w-3.5 h-3.5" />}
               </div>
-              <div className="text-left hidden md:block">
-                <div className="text-xs font-bold text-white max-w-[100px] truncate leading-tight">
+              <div className="text-left">
+                <div className="text-xs font-bold text-white max-w-[120px] truncate leading-tight">
                   {currentUser?.nama_lengkap || currentUser?.username || 'Pengguna'}
                 </div>
                 <div className="text-[9px] uppercase font-mono font-bold text-[#c5a059] leading-none">
@@ -120,17 +120,17 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onLogout 
             <button
               onClick={onLogout}
               title="Keluar / Logout"
-              className="px-2 py-1 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-slate-800 hover:border-rose-900 transition flex items-center space-x-1 text-xs font-semibold"
+              className="px-2.5 py-1.5 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-slate-800 hover:border-rose-900 transition flex items-center space-x-1 text-xs font-semibold"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Keluar</span>
+              <span>Keluar</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Sub-nav row for screens below 1280px (Laptops) to avoid any overflow */}
-      <div className="xl:hidden flex overflow-x-auto px-2 py-1.5 space-x-1 bg-slate-950/95 border-t border-slate-800 scrollbar-none w-full">
+      {/* Sub-nav row for screens below 2xl (1536px / Laptops) to give roomy clean view */}
+      <div className="2xl:hidden flex overflow-x-auto px-3 py-2 space-x-1.5 bg-slate-950/95 border-t border-slate-800 scrollbar-none w-full">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;

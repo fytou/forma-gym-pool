@@ -45,82 +45,65 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onLogout 
   const dateString = time.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
-    <header className="bg-slate-900 text-white shadow-lg sticky top-0 z-40 border-b border-slate-800 w-full">
-      <div className="w-full max-w-[1440px] mx-auto px-2 sm:px-4 lg:px-6">
-        <div className="flex items-center justify-between h-16 gap-1 sm:gap-3">
-          {/* Logo & Brand (Compact) */}
-          <div className="flex items-center space-x-2 cursor-pointer flex-shrink-0" onClick={() => setActiveTab('checkin')}>
+    <header className="bg-slate-900 text-white shadow-xl sticky top-0 z-40 border-b border-slate-800 w-full">
+      {/* Top Bar: Brand Logo & User Profile / Logout */}
+      <div className="w-full px-4 sm:px-6 lg:px-8 border-b border-slate-800/80 bg-slate-950/70 py-2.5">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          {/* Brand Logo */}
+          <div 
+            className="flex items-center space-x-3 cursor-pointer group" 
+            onClick={() => setActiveTab('checkin')}
+          >
             <img 
               src="/logo.png" 
               alt="FORMA Logo" 
-              className="w-8 h-8 sm:w-9 sm:h-9 object-contain rounded-xl border border-[#c5a059]/40 bg-black p-0.5 shadow-md shadow-[#c5a059]/15" 
+              className="w-8 h-8 sm:w-9 sm:h-9 object-contain rounded-xl border border-[#c5a059]/40 bg-black p-0.5 shadow-md shadow-[#c5a059]/20 group-hover:scale-105 transition" 
             />
-            <div className="hidden sm:block">
-              <div className="flex items-center space-x-1.5">
+            <div>
+              <div className="flex items-center space-x-2">
                 <span className="font-black text-sm sm:text-base tracking-wider text-white">FORMA</span>
-                <span className="text-[9px] px-1.5 py-0.2 rounded font-semibold bg-[#c5a059]/20 text-[#dfc185] border border-[#c5a059]/30">
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-[#c5a059]/20 text-[#dfc185] border border-[#c5a059]/30 tracking-widest uppercase">
                   GYM • CAFE • POOL
                 </span>
               </div>
+              <p className="text-[10px] text-slate-400 hidden sm:block">Sistem Manajemen & Kontrol Akses</p>
             </div>
           </div>
 
-          {/* Nav links (Clean desktop navigation) */}
-          <nav className="hidden 2xl:flex items-center space-x-1 flex-1 justify-center px-2">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
-                    isActive
-                      ? 'bg-[#c5a059] text-slate-950 font-bold shadow-sm'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
-                  }`}
-                >
-                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-slate-950' : 'text-slate-400'}`} />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* User profile, Role badge, & Logout */}
-          <div className="flex items-center space-x-2 flex-shrink-0">
-            {/* Clock (Only visible on wide screen) */}
-            <div className="text-right hidden 2xl:block pr-2">
-              <div className="text-xs font-bold text-slate-200 font-mono leading-none">
+          {/* Right: Clock + User Profile + Logout Button */}
+          <div className="flex items-center space-x-2.5 sm:space-x-3">
+            {/* Real-time Clock */}
+            <div className="text-right hidden md:block border-r border-slate-800 pr-3">
+              <div className="text-xs font-bold text-slate-200 font-mono leading-tight">
                 {timeString} WIB
               </div>
-              <div className="text-[9px] text-slate-400 mt-0.5">
+              <div className="text-[10px] text-slate-400">
                 {dateString}
               </div>
             </div>
 
-            {/* Current User Badge */}
-            <div className="flex items-center space-x-1.5 bg-slate-800/90 border border-slate-700/80 px-2.5 py-1 rounded-xl">
-              <div className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs ${
+            {/* User Profile Badge */}
+            <div className="flex items-center space-x-2 bg-slate-800/90 border border-slate-700/80 px-3 py-1.5 rounded-xl shadow-sm">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
                 userRole === 'superadmin' ? 'bg-[#c5a059] text-slate-950' : 'bg-slate-700 text-[#dfc185]'
               }`}>
-                {userRole === 'superadmin' ? <Shield className="w-3.5 h-3.5" /> : <CreditCard className="w-3.5 h-3.5" />}
+                {userRole === 'superadmin' ? <Shield className="w-4 h-4" /> : <CreditCard className="w-4 h-4" />}
               </div>
               <div className="text-left">
-                <div className="text-xs font-bold text-white max-w-[120px] truncate leading-tight">
+                <div className="text-xs font-bold text-white leading-tight">
                   {currentUser?.nama_lengkap || currentUser?.username || 'Pengguna'}
                 </div>
-                <div className="text-[9px] uppercase font-mono font-bold text-[#c5a059] leading-none">
+                <div className="text-[9px] uppercase font-mono font-bold text-[#c5a059] leading-none mt-0.5">
                   {userRole === 'superadmin' ? 'Superadmin' : 'Kasir'}
                 </div>
               </div>
             </div>
 
-            {/* Logout Button */}
+            {/* Standout Logout Button */}
             <button
               onClick={onLogout}
-              title="Keluar / Logout"
-              className="px-2.5 py-1.5 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-slate-800 hover:border-rose-900 transition flex items-center space-x-1 text-xs font-semibold"
+              title="Keluar dari Sistem"
+              className="px-3 py-1.5 rounded-xl text-rose-300 hover:text-white bg-rose-950/40 hover:bg-rose-900/80 border border-rose-800/60 hover:border-rose-700 transition flex items-center space-x-1.5 text-xs font-bold shadow-sm active:scale-95 cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Keluar</span>
@@ -129,24 +112,28 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onLogout 
         </div>
       </div>
 
-      {/* Sub-nav row for screens below 2xl (1536px / Laptops) to give roomy clean view */}
-      <div className="2xl:hidden flex overflow-x-auto px-3 py-2 space-x-1.5 bg-slate-950/95 border-t border-slate-800 scrollbar-none w-full">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`flex-shrink-0 flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
-                isActive ? 'bg-[#c5a059] text-slate-950 font-bold' : 'text-slate-400 hover:text-white bg-slate-900/60'
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
+      {/* Bottom Bar: Full-Width Navigation Menu (Scrollable if overflow) */}
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-2 bg-slate-900/95 overflow-x-auto scrollbar-none">
+        <nav className="flex items-center space-x-1.5 max-w-7xl mx-auto min-w-max">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  isActive
+                    ? 'bg-[#c5a059] text-slate-950 shadow-md shadow-[#c5a059]/20 font-extrabold'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-slate-950' : 'text-[#c5a059]'}`} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
       </div>
     </header>
   );

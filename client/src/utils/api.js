@@ -315,9 +315,16 @@ export async function checkoutPos(orderData) {
   return res.json();
 }
 
-export async function getPosHistory() {
+export async function getPosHistory(params = {}) {
   const token = getAuthToken();
-  const res = await fetch(`${API_BASE}/pos/history`, {
+  const query = new URLSearchParams();
+  if (params.search) query.append('search', params.search);
+  if (params.bulan) query.append('bulan', params.bulan);
+  if (params.tahun) query.append('tahun', params.tahun);
+  if (params.page) query.append('page', params.page);
+  if (params.limit) query.append('limit', params.limit);
+
+  const res = await fetch(`${API_BASE}/pos/history?${query.toString()}`, {
     headers: { 'Authorization': `Bearer ${token}` }
   });
   return res.json();
@@ -344,8 +351,15 @@ export async function addTrainer(trainerData) {
   return res.json();
 }
 
-export async function getTrainerMembers() {
-  const res = await fetch(`${API_BASE}/trainers/members`);
+export async function getTrainerMembers(params = {}) {
+  const query = new URLSearchParams();
+  if (params.search) query.append('search', params.search);
+  if (params.bulan) query.append('bulan', params.bulan);
+  if (params.tahun) query.append('tahun', params.tahun);
+  if (params.page) query.append('page', params.page);
+  if (params.limit) query.append('limit', params.limit);
+
+  const res = await fetch(`${API_BASE}/trainers/members?${query.toString()}`);
   return res.json();
 }
 
@@ -448,6 +462,19 @@ export async function addExpense(data) {
     },
     body: JSON.stringify(data)
   });
+  return res.json();
+}
+
+export async function getUnifiedTransactions(params = {}) {
+  const query = new URLSearchParams();
+  if (params.kategori) query.append('kategori', params.kategori);
+  if (params.search) query.append('search', params.search);
+  if (params.bulan) query.append('bulan', params.bulan);
+  if (params.tahun) query.append('tahun', params.tahun);
+  if (params.page) query.append('page', params.page);
+  if (params.limit) query.append('limit', params.limit);
+
+  const res = await fetch(`${API_BASE}/finance/unified-transactions?${query.toString()}`);
   return res.json();
 }
 

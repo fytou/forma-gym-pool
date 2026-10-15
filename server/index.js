@@ -968,7 +968,7 @@ app.get('/api/checkin/logs', (req, res) => {
 // History Transaksi dengan Filter Periode & Pencarian Member
 app.get('/api/transactions', (req, res) => {
   try {
-    const { search = '', bulan = '', tahun = '', jenis = '', limit = 50, page = 1 } = req.query;
+    const { search = '', bulan = '', tahun = '', jenis = '', limit = 10, page = 1 } = req.query;
 
     let query = `
       SELECT t.*, m.id_member, m.nama, m.no_hp, p.nama_paket
@@ -1050,6 +1050,115 @@ app.get('/api/transactions', (req, res) => {
       limit: numLimit
     });
   } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ==========================================
+// UNIFIED FINANCE TRANSACTIONS (Semua, Member Gym, POS Kasir, Trainer PT)
+// ==========================================
+app.get('/api/finance/unified-transactions', (req, res) => {
+  try {
+    const { kategori = 'Semua', search = '', bulan = '', tahun = '', page = 1, limit = 10 } = req.query;
+
+    let unionQuery = `
+      SELECT 
+        ('MEMBER-' || t.id_transaksi) as unique_id,
+        'Member Gym' as kategori,
+        ('TRX-' || printf('%05d', t.id_transaksi)) as no_referensi,
+        m.nama as pihak_terkait,
+        m.id_member as kode_id,
+        ('Paket ' || p.nama_paket || ' (' || CASE WHEN t.jenis = 'daftar' THEN 'Daftar Baru' ELSE 'Perpanjangan' END || ')') as deskripsi,
+        t.jumlah_bayar as nominal,
+        t.metode_bayar,
+        t.tanggal_bayar as waktu
+      FROM transactions t
+      JOIN memberships ms ON t.membership_id = ms.id_membership
+      JOIN members m ON ms.member_id = m.id_member
+      JOIN packages p ON ms.paket_id = p.id_paket
+
+      UNION ALL
+
+      SELECT 
+        ('POS-' || pt.id_transaksi_pos) as unique_id,
+        'POS Kasir' as kategori,
+        pt.nomor_struk as no_referensi,
+        pt.nama_pembeli as pihak_terkait,
+        COALESCE(pt.member_id, '-') as kode_id,
+        (
+          SELECT COALESCE(GROUP_CONCAT(pti.nama_produk || ' x' || pti.qty, ', '), 'Belanja Kasir')
+          FROM pos_transaction_items pti
+          WHERE pti.id_transaksi_pos = pt.id_transaksi_pos
+        ) as deskripsi,
+        pt.total_bayar as nominal,
+        pt.metode_bayar,
+        pt.created_at as waktu
+      FROM pos_transactions pt
+
+      UNION ALL
+
+      SELECT 
+        ('PT-' || tm.id_pt_member) as unique_id,
+        'Trainer (PT)' as kategori,
+        ('PT-' || printf('%04d', tm.id_pt_member)) as no_referensi,
+        m.nama as pihak_terkait,
+        tm.member_id as kode_id,
+        (tm.nama_paket_pt || ' • Pelatih: ' || t.nama_trainer || ' (' || tm.total_sesi || ' Sesi)') as deskripsi,
+        tm.biaya as nominal,
+        'Tunai' as metode_bayar,
+        (tm.tanggal_daftar || ' 00:00:00') as waktu
+      FROM trainer_members tm
+      JOIN members m ON tm.member_id = m.id_member
+      JOIN trainers t ON tm.id_trainer = t.id_trainer
+    `;
+
+    let outerQuery = `SELECT * FROM (${unionQuery}) u WHERE 1=1`;
+    const params = [];
+
+    if (kategori && kategori !== 'Semua') {
+      if (kategori === 'Member Gym') outerQuery += ` AND u.kategori = 'Member Gym'`;
+      else if (kategori === 'POS Kasir') outerQuery += ` AND u.kategori = 'POS Kasir'`;
+      else if (kategori === 'Trainer (PT)') outerQuery += ` AND u.kategori = 'Trainer (PT)'`;
+    }
+
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      outerQuery += ` AND (u.no_referensi LIKE ? OR u.pihak_terkait LIKE ? OR u.kode_id LIKE ? OR u.deskripsi LIKE ? OR u.metode_bayar LIKE ?)`;
+      params.push(s, s, s, s, s);
+    }
+
+    if (bulan && tahun) {
+      const ym = `${tahun}-${String(bulan).padStart(2, '0')}%`;
+      outerQuery += ` AND u.waktu LIKE ?`;
+      params.push(ym);
+    } else if (tahun) {
+      const y = `${tahun}%`;
+      outerQuery += ` AND u.waktu LIKE ?`;
+      params.push(y);
+    }
+
+    // Summary calculation
+    let countQuery = `SELECT COUNT(*) as total_count, COALESCE(SUM(nominal), 0) as total_nominal FROM (${outerQuery})`;
+    const stat = db.prepare(countQuery).get(...params);
+
+    // Sorting & Pagination
+    outerQuery += ` ORDER BY u.waktu DESC LIMIT ? OFFSET ?`;
+    const numLimit = Number(limit) || 10;
+    const numOffset = ((Number(page) || 1) - 1) * numLimit;
+    const queryParams = [...params, numLimit, numOffset];
+
+    const rows = db.prepare(outerQuery).all(...queryParams);
+
+    res.json({
+      success: true,
+      data: rows,
+      total_count: stat?.total_count || 0,
+      total_nominal: stat?.total_nominal || 0,
+      page: Number(page) || 1,
+      limit: numLimit
+    });
+  } catch (err) {
+    console.error('Unified transactions error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -1193,14 +1302,63 @@ app.post('/api/pos/checkout', authenticateToken, (req, res) => {
   }
 });
 
-// Get POS Sales History with items detail
+// Get POS Sales History with filters, pagination, and items detail
 app.get('/api/pos/history', authenticateToken, (req, res) => {
   try {
-    const history = db.prepare(`
-      SELECT pt.*
+    const { search = '', bulan = '', tahun = '', limit = 10, page = 1 } = req.query;
+
+    let query = `
+      SELECT pt.*, pt.created_at as tanggal_waktu
       FROM pos_transactions pt
-      ORDER BY pt.id_transaksi_pos DESC LIMIT 100
-    `).all();
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      query += ` AND (pt.nomor_struk LIKE ? OR pt.nama_pembeli LIKE ? OR pt.kasir_nama LIKE ? OR pt.member_id LIKE ?)`;
+      params.push(s, s, s, s);
+    }
+
+    if (bulan && tahun) {
+      const ym = `${tahun}-${String(bulan).padStart(2, '0')}%`;
+      query += ` AND pt.created_at LIKE ?`;
+      params.push(ym);
+    } else if (tahun) {
+      const y = `${tahun}%`;
+      query += ` AND pt.created_at LIKE ?`;
+      params.push(y);
+    }
+
+    let sumQuery = `
+      SELECT SUM(pt.total_bayar) as total_nominal, COUNT(pt.id_transaksi_pos) as total_count
+      FROM pos_transactions pt
+      WHERE 1=1
+    `;
+    const sumParams = [];
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      sumQuery += ` AND (pt.nomor_struk LIKE ? OR pt.nama_pembeli LIKE ? OR pt.kasir_nama LIKE ? OR pt.member_id LIKE ?)`;
+      sumParams.push(s, s, s, s);
+    }
+    if (bulan && tahun) {
+      const ym = `${tahun}-${String(bulan).padStart(2, '0')}%`;
+      sumQuery += ` AND pt.created_at LIKE ?`;
+      sumParams.push(ym);
+    } else if (tahun) {
+      const y = `${tahun}%`;
+      sumQuery += ` AND pt.created_at LIKE ?`;
+      sumParams.push(y);
+    }
+
+    const stat = db.prepare(sumQuery).get(...sumParams);
+
+    query += ' ORDER BY pt.id_transaksi_pos DESC LIMIT ? OFFSET ?';
+    const numLimit = Number(limit) || 10;
+    const numOffset = ((Number(page) || 1) - 1) * numLimit;
+    params.push(numLimit, numOffset);
+
+    const history = db.prepare(query).all(...params);
 
     const getItems = db.prepare('SELECT * FROM pos_transaction_items WHERE id_transaksi_pos = ?');
     const enrichedHistory = history.map(h => ({
@@ -1208,7 +1366,14 @@ app.get('/api/pos/history', authenticateToken, (req, res) => {
       items: getItems.all(h.id_transaksi_pos)
     }));
 
-    res.json({ success: true, data: enrichedHistory });
+    res.json({
+      success: true,
+      data: enrichedHistory,
+      total_nominal: stat?.total_nominal || 0,
+      total_count: stat?.total_count || 0,
+      page: Number(page) || 1,
+      limit: numLimit
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -1246,17 +1411,76 @@ app.post('/api/trainers', authenticateToken, (req, res) => {
   }
 });
 
-// Get all PT members
+// Get all PT members with filters and pagination
 app.get('/api/trainers/members', (req, res) => {
   try {
-    const list = db.prepare(`
+    const { search = '', bulan = '', tahun = '', limit = 10, page = 1 } = req.query;
+
+    let query = `
       SELECT tm.*, m.nama as nama_member, m.no_hp as member_no_hp, m.foto as member_foto, t.nama_trainer
       FROM trainer_members tm
       JOIN members m ON tm.member_id = m.id_member
       JOIN trainers t ON tm.id_trainer = t.id_trainer
-      ORDER BY tm.id_pt_member DESC
-    `).all();
-    res.json({ success: true, data: list });
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      query += ` AND (m.nama LIKE ? OR m.id_member LIKE ? OR t.nama_trainer LIKE ? OR tm.nama_paket_pt LIKE ?)`;
+      params.push(s, s, s, s);
+    }
+
+    if (bulan && tahun) {
+      const ym = `${tahun}-${String(bulan).padStart(2, '0')}%`;
+      query += ` AND tm.tanggal_daftar LIKE ?`;
+      params.push(ym);
+    } else if (tahun) {
+      const y = `${tahun}%`;
+      query += ` AND tm.tanggal_daftar LIKE ?`;
+      params.push(y);
+    }
+
+    let sumQuery = `
+      SELECT SUM(tm.biaya) as total_nominal, COUNT(tm.id_pt_member) as total_count
+      FROM trainer_members tm
+      JOIN members m ON tm.member_id = m.id_member
+      JOIN trainers t ON tm.id_trainer = t.id_trainer
+      WHERE 1=1
+    `;
+    const sumParams = [];
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      sumQuery += ` AND (m.nama LIKE ? OR m.id_member LIKE ? OR t.nama_trainer LIKE ? OR tm.nama_paket_pt LIKE ?)`;
+      sumParams.push(s, s, s, s);
+    }
+    if (bulan && tahun) {
+      const ym = `${tahun}-${String(bulan).padStart(2, '0')}%`;
+      sumQuery += ` AND tm.tanggal_daftar LIKE ?`;
+      sumParams.push(ym);
+    } else if (tahun) {
+      const y = `${tahun}%`;
+      sumQuery += ` AND tm.tanggal_daftar LIKE ?`;
+      sumParams.push(y);
+    }
+
+    const stat = db.prepare(sumQuery).get(...sumParams);
+
+    query += ' ORDER BY tm.id_pt_member DESC LIMIT ? OFFSET ?';
+    const numLimit = Number(limit) || 10;
+    const numOffset = ((Number(page) || 1) - 1) * numLimit;
+    params.push(numLimit, numOffset);
+
+    const list = db.prepare(query).all(...params);
+
+    res.json({
+      success: true,
+      data: list,
+      total_nominal: stat?.total_nominal || 0,
+      total_count: stat?.total_count || 0,
+      page: Number(page) || 1,
+      limit: numLimit
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

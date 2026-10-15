@@ -465,6 +465,22 @@ export async function addExpense(data) {
   return res.json();
 }
 
+export async function getExpenses(params = {}) {
+  const token = getAuthToken();
+  const query = new URLSearchParams();
+  if (params.kategori) query.append('kategori', params.kategori);
+  if (params.search) query.append('search', params.search);
+  if (params.bulan) query.append('bulan', params.bulan);
+  if (params.tahun) query.append('tahun', params.tahun);
+  if (params.page) query.append('page', params.page);
+  if (params.limit) query.append('limit', params.limit);
+
+  const res = await fetch(`${API_BASE}/finance/expenses?${query.toString()}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  return res.json();
+}
+
 export async function getUnifiedTransactions(params = {}) {
   const query = new URLSearchParams();
   if (params.kategori) query.append('kategori', params.kategori);

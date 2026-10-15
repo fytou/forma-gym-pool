@@ -1696,6 +1696,87 @@ app.get('/api/finance/summary', authenticateToken, requireRole(['superadmin']), 
   }
 });
 
+// Get Expenses with search, period filters, and pagination
+app.get('/api/finance/expenses', authenticateToken, requireRole(['superadmin']), (req, res) => {
+  try {
+    const { search = '', bulan = '', tahun = '', kategori = '', limit = 10, page = 1 } = req.query;
+
+    let query = `
+      SELECT *
+      FROM expenses
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (kategori && kategori !== 'Semua') {
+      query += ` AND kategori = ?`;
+      params.push(kategori);
+    }
+
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      query += ` AND (deskripsi LIKE ? OR kategori LIKE ? OR pic LIKE ? OR metode_bayar LIKE ?)`;
+      params.push(s, s, s, s);
+    }
+
+    if (bulan && tahun) {
+      const ym = `${tahun}-${String(bulan).padStart(2, '0')}%`;
+      query += ` AND tanggal LIKE ?`;
+      params.push(ym);
+    } else if (tahun) {
+      const y = `${tahun}%`;
+      query += ` AND tanggal LIKE ?`;
+      params.push(y);
+    }
+
+    // Sum query
+    let sumQuery = `
+      SELECT COUNT(*) as total_count, COALESCE(SUM(nominal), 0) as total_nominal
+      FROM expenses
+      WHERE 1=1
+    `;
+    const sumParams = [];
+    if (kategori && kategori !== 'Semua') {
+      sumQuery += ` AND kategori = ?`;
+      sumParams.push(kategori);
+    }
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      sumQuery += ` AND (deskripsi LIKE ? OR kategori LIKE ? OR pic LIKE ? OR metode_bayar LIKE ?)`;
+      sumParams.push(s, s, s, s);
+    }
+    if (bulan && tahun) {
+      const ym = `${tahun}-${String(bulan).padStart(2, '0')}%`;
+      sumQuery += ` AND tanggal LIKE ?`;
+      sumParams.push(ym);
+    } else if (tahun) {
+      const y = `${tahun}%`;
+      sumQuery += ` AND tanggal LIKE ?`;
+      sumParams.push(y);
+    }
+
+    const stat = db.prepare(sumQuery).get(...sumParams);
+
+    query += ` ORDER BY id_pengeluaran DESC LIMIT ? OFFSET ?`;
+    const numLimit = Number(limit) || 10;
+    const numOffset = ((Number(page) || 1) - 1) * numLimit;
+    params.push(numLimit, numOffset);
+
+    const rows = db.prepare(query).all(...params);
+
+    res.json({
+      success: true,
+      data: rows,
+      total_count: stat?.total_count || 0,
+      total_nominal: stat?.total_nominal || 0,
+      page: Number(page) || 1,
+      limit: numLimit
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Add Expense
 app.post('/api/finance/expenses', authenticateToken, requireRole(['superadmin']), (req, res) => {
   try {

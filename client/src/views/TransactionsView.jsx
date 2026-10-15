@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { 
   Receipt, Wallet, RefreshCw, Calendar, Search, Filter, 
   ChevronLeft, ChevronRight, User, ArrowDownRight, CreditCard,

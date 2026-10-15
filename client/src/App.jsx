@@ -18,9 +18,36 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(() => getStoredUser());
   const [checkingAuth, setCheckingAuth] = useState(true);
 
-  // Default to 'checkin' because Front Desk / Kasir is the primary daily user!
-  const [activeTab, setActiveTab] = useState('checkin');
+  // Helper to get tab from current URL pathname
+  const getTabFromUrl = () => {
+    const path = window.location.pathname.replace(/^\/+/, '').split('/')[0].toLowerCase();
+    const validTabs = ['checkin', 'pos', 'trainer', 'loker', 'members', 'dashboard', 'register', 'packages', 'logs', 'keuangan', 'transactions', 'users'];
+    if (path === 'keuangan') return 'transactions';
+    if (validTabs.includes(path)) return path;
+    return 'checkin';
+  };
+
+  // Tab state synced with URL pathname
+  const [activeTab, setActiveTabState] = useState(() => getTabFromUrl());
   const [memberFilter, setMemberFilter] = useState('Semua');
+
+  // Change tab and update browser URL without reload
+  const setActiveTab = (tab) => {
+    setActiveTabState(tab);
+    const path = tab === 'transactions' ? '/keuangan' : `/${tab}`;
+    if (window.location.pathname !== path) {
+      window.history.pushState(null, '', path);
+    }
+  };
+
+  // Listen to browser Back/Forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveTabState(getTabFromUrl());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Check auth session on startup
   useEffect(() => {

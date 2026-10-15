@@ -1193,16 +1193,22 @@ app.post('/api/pos/checkout', authenticateToken, (req, res) => {
   }
 });
 
-// Get POS Sales History
+// Get POS Sales History with items detail
 app.get('/api/pos/history', authenticateToken, (req, res) => {
   try {
     const history = db.prepare(`
-      SELECT pt.*, 
-        (SELECT COUNT(*) FROM pos_transaction_items pti WHERE pti.id_transaksi_pos = pt.id_transaksi_pos) as item_count
+      SELECT pt.*
       FROM pos_transactions pt
-      ORDER BY pt.id_transaksi_pos DESC LIMIT 50
+      ORDER BY pt.id_transaksi_pos DESC LIMIT 100
     `).all();
-    res.json({ success: true, data: history });
+
+    const getItems = db.prepare('SELECT * FROM pos_transaction_items WHERE id_transaksi_pos = ?');
+    const enrichedHistory = history.map(h => ({
+      ...h,
+      items: getItems.all(h.id_transaksi_pos)
+    }));
+
+    res.json({ success: true, data: enrichedHistory });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -1264,11 +1270,29 @@ app.post('/api/trainers/members', authenticateToken, (req, res) => {
       return res.status(400).json({ success: false, message: 'Member, trainer, dan total sesi wajib diisi' });
     }
 
+    const cleanInput = member_id.trim();
+
+    // Check if input matches ID, Nama, or Phone
+    const memberRow = db.prepare(`
+      SELECT id_member, nama FROM members
+      WHERE UPPER(id_member) = ? OR UPPER(nama) = ? OR nama LIKE ? OR no_hp = ?
+      LIMIT 1
+    `).get(cleanInput.toUpperCase(), cleanInput.toUpperCase(), `%${cleanInput}%`, cleanInput);
+
+    if (!memberRow) {
+      return res.status(404).json({
+        success: false,
+        message: `Member '${cleanInput}' tidak ditemukan. Pastikan memilih member yang sudah terdaftar.`
+      });
+    }
+
+    const targetMemberId = memberRow.id_member;
+
     db.prepare(`
       INSERT INTO trainer_members (member_id, id_trainer, nama_paket_pt, total_sesi, sesi_tersisa, biaya, catatan)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
-      member_id,
+      targetMemberId,
       Number(id_trainer),
       nama_paket_pt || `${total_sesi} Sesi Personal Trainer`,
       Number(total_sesi),
@@ -1277,7 +1301,7 @@ app.post('/api/trainers/members', authenticateToken, (req, res) => {
       catatan || ''
     );
 
-    res.json({ success: true, message: 'Pendaftaran paket Personal Trainer berhasil!' });
+    res.json({ success: true, message: `Pendaftaran paket Personal Trainer untuk ${memberRow.nama} (${targetMemberId}) berhasil!` });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

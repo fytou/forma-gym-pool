@@ -13,6 +13,7 @@ export default function PosKasirView() {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
   
   // Checkout Modal State
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
@@ -65,6 +66,17 @@ export default function PosKasirView() {
     const matchSearch = p.nama_produk.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         (p.barcode && p.barcode.includes(searchQuery));
     return matchCat && matchSearch;
+  });
+
+  const filteredHistory = history.filter(h => {
+    const s = historySearch.toLowerCase();
+    return (
+      h.nomor_struk?.toLowerCase().includes(s) ||
+      h.nama_pembeli?.toLowerCase().includes(s) ||
+      h.kasir_nama?.toLowerCase().includes(s) ||
+      h.metode_bayar?.toLowerCase().includes(s) ||
+      (h.items && h.items.some(it => it.nama_produk.toLowerCase().includes(s)))
+    );
   });
 
   const addToCart = (product) => {
@@ -651,34 +663,88 @@ export default function PosKasirView() {
         </div>
       )}
 
-      {/* RIWAYAT TRANSAKSI MODAL */}
+      {/* RIWAYAT TRANSAKSI MODAL (DETAIL STRUK & CETAK ULANG) */}
       {showHistory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 max-h-[80vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-              <h3 className="font-black text-slate-900 text-base uppercase">Riwayat Penjualan POS Kasir</h3>
-              <button onClick={() => setShowHistory(false)} className="text-slate-400 hover:text-slate-600">
+              <div>
+                <h3 className="font-black text-slate-900 text-base uppercase">Riwayat & Arsip Struk Kasir</h3>
+                <p className="text-xs text-slate-500">Daftar struk transaksi penjualan, rincian item belanja & pencatatan kasir</p>
+              </div>
+              <button onClick={() => setShowHistory(false)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="overflow-y-auto flex-1 space-y-2 text-xs">
-              {history.map((h) => (
-                <div key={h.id_transaksi_pos} className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
-                  <div>
-                    <div className="font-mono font-bold text-slate-900">{h.nomor_struk}</div>
-                    <div className="text-[11px] text-slate-500">
-                      {h.nama_pembeli} • Kasir: {h.kasir_nama} • {h.metode_bayar}
+            {/* Filter History */}
+            <div className="mb-3 flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Cari No. Struk, Nama Pembeli, atau Kasir..."
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs font-medium rounded-xl border border-slate-200 focus:outline-none focus:border-[#c5a059]"
+                />
+              </div>
+              <div className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-2 rounded-xl whitespace-nowrap">
+                Total: {filteredHistory.length} Struk
+              </div>
+            </div>
+
+            {/* List History */}
+            <div className="overflow-y-auto flex-1 space-y-3 text-xs pr-1">
+              {filteredHistory.map((h) => (
+                <div key={h.id_transaksi_pos} className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 hover:border-[#c5a059] transition">
+                  <div className="flex items-start justify-between border-b border-slate-200/60 pb-2 mb-2">
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono font-black text-slate-900 text-sm">{h.nomor_struk}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#c5a059]/15 text-[#967434] border border-[#c5a059]/30">
+                          {h.metode_bayar}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        Pembeli: <strong className="text-slate-800">{h.nama_pembeli}</strong>
+                        {h.member_id && <span className="font-mono ml-1 text-[#c5a059]">({h.member_id})</span>}
+                        <span className="mx-2">•</span>
+                        Kasir: <strong>{h.kasir_nama}</strong>
+                      </div>
                     </div>
-                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">{h.created_at}</div>
+                    <div className="text-right">
+                      <div className="font-mono font-black text-base text-slate-950">
+                        Rp {h.total_bayar.toLocaleString('id-ID')}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono mt-0.5">{h.created_at}</div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="font-mono font-black text-sm text-slate-950">
-                      Rp {h.total_bayar.toLocaleString('id-ID')}
-                    </span>
-                  </div>
+
+                  {/* Itemized Purchased List */}
+                  {h.items && h.items.length > 0 && (
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-100 space-y-1 mt-2">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Rincian Item Belanja:</div>
+                      {h.items.map((it) => (
+                        <div key={it.id_item} className="flex justify-between items-center text-xs">
+                          <span className="text-slate-700">
+                            {it.nama_produk} <strong className="text-slate-900 font-mono">x{it.qty}</strong>
+                          </span>
+                          <span className="font-mono text-slate-600">
+                            Rp {it.subtotal.toLocaleString('id-ID')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
+
+              {filteredHistory.length === 0 && (
+                <div className="p-8 text-center text-slate-400">
+                  Belum ada struk penjualan POS kasir.
+                </div>
+              )}
             </div>
           </div>
         </div>

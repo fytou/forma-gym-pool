@@ -4,10 +4,10 @@ import {
   ChevronLeft, ChevronRight, User, ArrowDownRight, CreditCard,
   TrendingUp, Download, Eye, CheckCircle2, DollarSign, Plus, ArrowUpRight, ShoppingBag, Dumbbell, X
 } from 'lucide-react';
-import { getTransactions, formatRupiah, formatDateIndo, getFinanceSummary, addExpense } from '../utils/api';
+import { getTransactions, formatRupiah, formatDateIndo, getFinanceSummary, addExpense, getPosHistory, getTrainerMembers } from '../utils/api';
 
 export default function TransactionsView() {
-  const [activeFinanceTab, setActiveFinanceTab] = useState('summary'); // 'summary' or 'memberships'
+  const [activeFinanceTab, setActiveFinanceTab] = useState('summary'); // 'summary', 'pos', 'pt', or 'expenses'
   const [financeSummary, setFinanceSummary] = useState(null);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseForm, setExpenseForm] = useState({
@@ -18,6 +18,10 @@ export default function TransactionsView() {
   });
 
   const [transactions, setTransactions] = useState([]);
+  const [posTransactions, setPosTransactions] = useState([]);
+  const [trainerMembers, setTrainerMembers] = useState([]);
+  const [posSearch, setPosSearch] = useState('');
+  const [ptSearch, setPtSearch] = useState('');
   const [loading, setLoading] = useState(true);
   
   // Total aggregations from backend
@@ -48,6 +52,19 @@ export default function TransactionsView() {
       if (res.success) setFinanceSummary(res.data);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const fetchExtraData = async () => {
+    try {
+      const [posRes, ptRes] = await Promise.all([
+        getPosHistory(),
+        getTrainerMembers()
+      ]);
+      if (posRes.success) setPosTransactions(posRes.data || []);
+      if (ptRes.success) setTrainerMembers(ptRes.data || []);
+    } catch (e) {
+      console.error('Error fetching extra finance logs:', e);
     }
   };
 
@@ -104,6 +121,7 @@ export default function TransactionsView() {
   useEffect(() => {
     fetchTransactionsData();
     fetchFinanceSummary();
+    fetchExtraData();
   }, [page, jenis, filterPeriod, selectedMonth, selectedYear]);
 
   // Handle Search submit
@@ -210,26 +228,53 @@ export default function TransactionsView() {
       )}
 
       {/* Tabs */}
-      <div className="flex items-center space-x-2 border-b border-slate-200 pb-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
         <button
           onClick={() => setActiveFinanceTab('summary')}
-          className={`px-4 py-2 text-xs font-bold rounded-xl transition ${
+          className={`flex items-center space-x-1.5 px-4 py-2 text-xs font-bold rounded-xl transition ${
             activeFinanceTab === 'summary'
               ? 'bg-slate-900 text-[#dfc185] shadow'
               : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          Semua Transaksi Member ({totalCount})
+          <Receipt className="w-3.5 h-3.5" />
+          <span>Transaksi Member ({totalCount})</span>
         </button>
+
+        <button
+          onClick={() => setActiveFinanceTab('pos')}
+          className={`flex items-center space-x-1.5 px-4 py-2 text-xs font-bold rounded-xl transition ${
+            activeFinanceTab === 'pos'
+              ? 'bg-slate-900 text-[#dfc185] shadow'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <ShoppingBag className="w-3.5 h-3.5" />
+          <span>Penjualan POS Kasir ({posTransactions.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveFinanceTab('pt')}
+          className={`flex items-center space-x-1.5 px-4 py-2 text-xs font-bold rounded-xl transition ${
+            activeFinanceTab === 'pt'
+              ? 'bg-slate-900 text-[#dfc185] shadow'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Dumbbell className="w-3.5 h-3.5" />
+          <span>Paket Trainer / PT ({trainerMembers.length})</span>
+        </button>
+
         <button
           onClick={() => setActiveFinanceTab('expenses')}
-          className={`px-4 py-2 text-xs font-bold rounded-xl transition ${
+          className={`flex items-center space-x-1.5 px-4 py-2 text-xs font-bold rounded-xl transition ${
             activeFinanceTab === 'expenses'
               ? 'bg-slate-900 text-[#dfc185] shadow'
               : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          Pengeluaran Operasional ({financeSummary?.expenses?.length || 0})
+          <ArrowUpRight className="w-3.5 h-3.5" />
+          <span>Pengeluaran Operasional ({financeSummary?.expenses?.length || 0})</span>
         </button>
       </div>
 
@@ -618,6 +663,181 @@ export default function TransactionsView() {
               >
                 Tutup Bukti Transaksi
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POS KASIR TAB VIEW */}
+      {activeFinanceTab === 'pos' && (
+        <div className="space-y-4">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Cari struk, kasir, atau nama pembeli..."
+                value={posSearch}
+                onChange={(e) => setPosSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#c5a059]"
+              />
+            </div>
+            <div className="text-xs font-semibold text-slate-500">
+              Total Penjualan: <span className="font-mono font-black text-slate-900">{formatRupiah(posTransactions.filter(p => !posSearch || (p.no_struk && p.no_struk.toLowerCase().includes(posSearch.toLowerCase())) || (p.nama_pembeli && p.nama_pembeli.toLowerCase().includes(posSearch.toLowerCase())) || (p.kasir_nama && p.kasir_nama.toLowerCase().includes(posSearch.toLowerCase()))).reduce((sum, item) => sum + (item.total_bayar || 0), 0))}</span>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-black text-slate-900 text-sm uppercase flex items-center space-x-2">
+                <ShoppingBag className="w-4 h-4 text-[#c5a059]" />
+                <span>Log Transaksi Penjualan POS Kasir</span>
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase text-[10px]">
+                  <tr>
+                    <th className="p-3.5">No. Struk</th>
+                    <th className="p-3.5">Tanggal & Waktu</th>
+                    <th className="p-3.5">Pelanggan</th>
+                    <th className="p-3.5">Kasir</th>
+                    <th className="p-3.5">Item Pembelian</th>
+                    <th className="p-3.5">Metode Bayar</th>
+                    <th className="p-3.5 text-right">Total Transaksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {posTransactions
+                    .filter(tx => {
+                      if (!posSearch) return true;
+                      const q = posSearch.toLowerCase();
+                      return (
+                        (tx.no_struk && tx.no_struk.toLowerCase().includes(q)) ||
+                        (tx.nama_pembeli && tx.nama_pembeli.toLowerCase().includes(q)) ||
+                        (tx.kasir_nama && tx.kasir_nama.toLowerCase().includes(q))
+                      );
+                    })
+                    .map((tx) => (
+                      <tr key={tx.id_transaksi_pos} className="hover:bg-slate-50/60">
+                        <td className="p-3.5 font-mono font-bold text-slate-900">{tx.no_struk}</td>
+                        <td className="p-3.5 text-slate-600 font-mono text-[11px]">{tx.tanggal_waktu}</td>
+                        <td className="p-3.5 font-semibold text-slate-800">{tx.nama_pembeli || 'Umum'}</td>
+                        <td className="p-3.5 text-slate-600">{tx.kasir_nama || '-'}</td>
+                        <td className="p-3.5">
+                          {tx.items && tx.items.length > 0 ? (
+                            <div className="space-y-0.5">
+                              {tx.items.map((it, idx) => (
+                                <div key={idx} className="text-[11px] text-slate-600">
+                                  • <span className="font-semibold text-slate-800">{it.nama_produk}</span> x{it.qty} ({formatRupiah(it.subtotal)})
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 italic">Rincian item kasir</span>
+                          )}
+                        </td>
+                        <td className="p-3.5">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            {tx.metode_bayar}
+                          </span>
+                        </td>
+                        <td className="p-3.5 font-mono font-black text-emerald-600 text-right">
+                          {formatRupiah(tx.total_bayar)}
+                        </td>
+                      </tr>
+                    ))}
+                  {posTransactions.length === 0 && (
+                    <tr>
+                      <td colSpan="7" className="p-8 text-center text-slate-400">Belum ada transaksi POS kasir</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PAKET TRAINER (PT) TAB VIEW */}
+      {activeFinanceTab === 'pt' && (
+        <div className="space-y-4">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Cari member atau personal trainer..."
+                value={ptSearch}
+                onChange={(e) => setPtSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#c5a059]"
+              />
+            </div>
+            <div className="text-xs font-semibold text-slate-500">
+              Total Pemasukan PT: <span className="font-mono font-black text-slate-900">{formatRupiah(trainerMembers.filter(m => !ptSearch || (m.nama_member && m.nama_member.toLowerCase().includes(ptSearch.toLowerCase())) || (m.nama_trainer && m.nama_trainer.toLowerCase().includes(ptSearch.toLowerCase())) || (m.member_id && m.member_id.toLowerCase().includes(ptSearch.toLowerCase()))).reduce((sum, item) => sum + (item.biaya || 0), 0))}</span>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-black text-slate-900 text-sm uppercase flex items-center space-x-2">
+                <Dumbbell className="w-4 h-4 text-[#c5a059]" />
+                <span>Log Pendaftaran Paket Personal Trainer (PT)</span>
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase text-[10px]">
+                  <tr>
+                    <th className="p-3.5">Tanggal Daftar</th>
+                    <th className="p-3.5">Member</th>
+                    <th className="p-3.5">Personal Trainer</th>
+                    <th className="p-3.5">Nama Paket</th>
+                    <th className="p-3.5">Sesi Latihan</th>
+                    <th className="p-3.5">Status</th>
+                    <th className="p-3.5 text-right">Biaya / Biaya PT</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {trainerMembers
+                    .filter(m => {
+                      if (!ptSearch) return true;
+                      const q = ptSearch.toLowerCase();
+                      return (
+                        (m.nama_member && m.nama_member.toLowerCase().includes(q)) ||
+                        (m.nama_trainer && m.nama_trainer.toLowerCase().includes(q)) ||
+                        (m.member_id && m.member_id.toLowerCase().includes(q))
+                      );
+                    })
+                    .map((item) => (
+                      <tr key={item.id_trainer_member} className="hover:bg-slate-50/60">
+                        <td className="p-3.5 font-mono text-slate-600 text-[11px]">{item.tanggal_daftar}</td>
+                        <td className="p-3.5">
+                          <div className="font-bold text-slate-900">{item.nama_member}</div>
+                          <div className="font-mono text-[10px] text-slate-400">{item.member_id}</div>
+                        </td>
+                        <td className="p-3.5 font-semibold text-slate-800">{item.nama_trainer}</td>
+                        <td className="p-3.5 font-bold text-[#967434]">{item.nama_paket}</td>
+                        <td className="p-3.5 font-mono">
+                          <span className="font-bold text-slate-900">{item.sesi_selesai}</span> / {item.total_sesi} Sesi
+                        </td>
+                        <td className="p-3.5">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.status === 'Active' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-600'}`}>
+                            {item.status === 'Active' ? 'Aktif' : 'Selesai'}
+                          </span>
+                        </td>
+                        <td className="p-3.5 font-mono font-black text-emerald-600 text-right">
+                          {formatRupiah(item.biaya)}
+                        </td>
+                      </tr>
+                    ))}
+                  {trainerMembers.length === 0 && (
+                    <tr>
+                      <td colSpan="7" className="p-8 text-center text-slate-400">Belum ada member paket trainer</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

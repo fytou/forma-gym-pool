@@ -3,13 +3,14 @@ import {
   Users, UserCheck, Dumbbell, Plus, Search, Calendar, 
   CheckCircle2, Clock, X, AlertCircle
 } from 'lucide-react';
-import { getTrainers, addTrainer, getTrainerMembers, registerTrainerMember, checkinTrainerSession, getTrainerSessions } from '../utils/api';
+import { getTrainers, addTrainer, getTrainerMembers, registerTrainerMember, checkinTrainerSession, getTrainerSessions, getMembers } from '../utils/api';
 
 export default function TrainerView() {
   const [activeTab, setActiveTab] = useState('members'); // 'members', 'trainers', 'sessions'
   const [trainers, setTrainers] = useState([]);
   const [trainerMembers, setTrainerMembers] = useState([]);
   const [sessions, setSessions] = useState([]);
+  const [membersList, setMembersList] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Register PT Member Modal
@@ -46,14 +47,16 @@ export default function TrainerView() {
 
   const loadData = async () => {
     try {
-      const [tRes, tmRes, sRes] = await Promise.all([
+      const [tRes, tmRes, sRes, mRes] = await Promise.all([
         getTrainers(),
         getTrainerMembers(),
-        getTrainerSessions()
+        getTrainerSessions(),
+        getMembers()
       ]);
       if (tRes.success) setTrainers(tRes.data);
       if (tmRes.success) setTrainerMembers(tmRes.data);
       if (sRes.success) setSessions(sRes.data);
+      if (mRes.success) setMembersList(mRes.data);
     } catch (e) {
       console.error(e);
     }
@@ -400,15 +403,20 @@ export default function TrainerView() {
 
             <form onSubmit={handleRegisterPT} className="space-y-3 text-xs">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">ID Member Gym</label>
-                <input
-                  type="text"
+                <label className="font-bold text-slate-700 block mb-1">Pilih Member Gym</label>
+                <select
                   required
-                  placeholder="Contoh: MEM-000101 atau FM-2026-00112"
                   value={regForm.member_id}
                   onChange={(e) => setRegForm({ ...regForm, member_id: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono focus:outline-none focus:border-[#c5a059]"
-                />
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium focus:outline-none focus:border-[#c5a059]"
+                >
+                  <option value="">-- Pilih Member Terdaftar --</option>
+                  {membersList.map((m) => (
+                    <option key={m.id_member} value={m.id_member}>
+                      {m.nama} — ({m.id_member})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>

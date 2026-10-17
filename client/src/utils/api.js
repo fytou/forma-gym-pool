@@ -389,8 +389,34 @@ export async function checkinTrainerSession(data) {
   return res.json();
 }
 
-export async function getTrainerSessions() {
-  const res = await fetch(`${API_BASE}/trainers/sessions`);
+export async function getTrainerSessions(params = {}) {
+  const query = new URLSearchParams();
+  if (params.search) query.append('search', params.search);
+  if (params.page) query.append('page', params.page);
+  if (params.limit) query.append('limit', params.limit);
+  const res = await fetch(`${API_BASE}/trainers/sessions?${query.toString()}`);
+  return res.json();
+}
+
+export async function renewTrainerMember(id, data) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/trainers/members/${id}/renew`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(data)
+  });
+  return res.json();
+}
+
+export async function deleteTrainerMember(id) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/trainers/members/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
   return res.json();
 }
 

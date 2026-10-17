@@ -1613,17 +1613,82 @@ app.post('/api/trainers/checkin-session', authenticateToken, (req, res) => {
   }
 });
 
-// Get Sessions History
+// Perpanjang / Tambah Sesi PT Member
+app.post('/api/trainers/members/:id/renew', authenticateToken, (req, res) => {
+  try {
+    const { tambah_sesi = 10, biaya = 0, nama_paket_pt, catatan } = req.body;
+    const ptMember = db.prepare('SELECT * FROM trainer_members WHERE id_pt_member = ?').get(req.params.id);
+    if (!ptMember) {
+      return res.status(404).json({ success: false, message: 'Data Member PT tidak ditemukan' });
+    }
+
+    const addSessions = Number(tambah_sesi) || 10;
+    const newTotal = Number(ptMember.total_sesi) + addSessions;
+    const currentRemaining = Math.max(0, Number(ptMember.sesi_tersisa));
+    const newRemaining = currentRemaining + addSessions;
+    const newBiaya = Number(ptMember.biaya || 0) + (Number(biaya) || 0);
+    const updatedPaket = nama_paket_pt || ptMember.nama_paket_pt;
+
+    db.prepare(`
+      UPDATE trainer_members
+      SET total_sesi = ?, sesi_tersisa = ?, status = 'Aktif', biaya = ?, nama_paket_pt = ?, catatan = ?
+      WHERE id_pt_member = ?
+    `).run(newTotal, newRemaining, newBiaya, updatedPaket, catatan || ptMember.catatan, req.params.id);
+
+    res.json({
+      success: true,
+      message: `Berhasil menambah ${addSessions} sesi! Sisa kuota sekarang ${newRemaining} sesi.`
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Hapus Member PT
+app.delete('/api/trainers/members/:id', authenticateToken, (req, res) => {
+  try {
+    db.prepare('DELETE FROM trainer_members WHERE id_pt_member = ?').run(req.params.id);
+    res.json({ success: true, message: 'Member PT berhasil dihapus' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Get Sessions History with Pagination (1-10 per page) and Search
 app.get('/api/trainers/sessions', (req, res) => {
   try {
-    const sessions = db.prepare(`
-      SELECT ts.*, m.nama as nama_member, t.nama_trainer
+    const { search = '', page = 1, limit = 10 } = req.query;
+    let query = `
+      SELECT ts.*, m.nama as nama_member, m.id_member, t.nama_trainer
       FROM trainer_sessions ts
       JOIN members m ON ts.member_id = m.id_member
       JOIN trainers t ON ts.id_trainer = t.id_trainer
-      ORDER BY ts.id_sesi DESC LIMIT 50
-    `).all();
-    res.json({ success: true, data: sessions });
+      WHERE 1=1
+    `;
+    const params = [];
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      query += ` AND (m.nama LIKE ? OR m.id_member LIKE ? OR t.nama_trainer LIKE ? OR ts.topik_latihan LIKE ?)`;
+      params.push(s, s, s, s);
+    }
+
+    const countRow = db.prepare(`SELECT COUNT(*) as total FROM (${query})`).get(...params);
+    const total = countRow ? countRow.total : 0;
+
+    query += ' ORDER BY ts.id_sesi DESC LIMIT ? OFFSET ?';
+    const numLimit = Number(limit) || 10;
+    const numOffset = ((Number(page) || 1) - 1) * numLimit;
+    params.push(numLimit, numOffset);
+
+    const sessions = db.prepare(query).all(...params);
+    res.json({
+      success: true,
+      data: sessions,
+      total,
+      page: Number(page) || 1,
+      limit: numLimit,
+      total_pages: Math.ceil(total / numLimit) || 1
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

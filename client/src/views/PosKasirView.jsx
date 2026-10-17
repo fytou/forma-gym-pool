@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShoppingCart, Plus, Minus, Trash2, Search, CheckCircle, 
-  CreditCard, Banknote, QrCode, AlertCircle, PackageCheck, History, X
+  CreditCard, Banknote, QrCode, AlertCircle, PackageCheck, History, X,
+  Pencil
 } from 'lucide-react';
 import { getPosProducts, addPosProduct, updatePosProduct, deletePosProduct, checkoutPos, getPosHistory } from '../utils/api';
 
@@ -179,13 +180,36 @@ export default function PosKasirView() {
     }
   };
 
-  const handleDeleteProduct = async (id) => {
-    if (!window.confirm('Yakin ingin menghapus produk ini dari katalog?')) return;
+  const handleEditProduct = (e, product) => {
+    if (e) e.stopPropagation();
+    setEditingProduct(product);
+    setFormData({
+      nama_produk: product.nama_produk || '',
+      kategori: product.kategori || 'Minuman',
+      harga_jual: product.harga_jual !== undefined ? product.harga_jual : '',
+      harga_modal: product.harga_modal !== undefined ? product.harga_modal : '',
+      stok: product.stok !== undefined ? product.stok : '',
+      barcode: product.barcode || '',
+      satuan: product.satuan || 'Pcs'
+    });
+    setShowProductModal(true);
+  };
+
+  const handleDeleteProduct = async (id, nama) => {
+    const confirmMsg = nama 
+      ? `Yakin ingin menghapus "${nama}" dari katalog kasir?` 
+      : 'Yakin ingin menghapus produk ini dari katalog kasir?';
+    if (!window.confirm(confirmMsg)) return;
     try {
       const res = await deletePosProduct(id);
-      if (res.success) loadProducts();
+      if (res.success) {
+        loadProducts();
+      } else {
+        alert(res.message || 'Gagal menghapus produk');
+      }
     } catch (e) {
       console.error(e);
+      alert('Terjadi kesalahan saat menghapus produk');
     }
   };
 
@@ -271,40 +295,83 @@ export default function PosKasirView() {
                 <div
                   key={p.id_produk}
                   onClick={() => !isOutOfStock && addToCart(p)}
-                  className={`bg-white rounded-2xl p-3.5 border transition-all flex flex-col justify-between relative group ${
+                  className={`bg-white rounded-2xl p-3.5 border transition-all flex flex-col justify-between relative group shadow-sm hover:shadow-md ${
                     isOutOfStock 
-                      ? 'opacity-60 border-slate-200 cursor-not-allowed' 
-                      : 'border-slate-200 hover:border-[#c5a059] hover:shadow-md cursor-pointer'
+                      ? 'opacity-70 border-slate-200 cursor-not-allowed' 
+                      : 'border-slate-200 hover:border-[#c5a059] cursor-pointer'
                   }`}
                 >
                   <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600 uppercase">
+                    {/* Header Row: Category Badge & Action Buttons */}
+                    <div className="flex items-center justify-between gap-1 mb-2">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600 uppercase tracking-wider">
                         {p.kategori}
                       </span>
-                      <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
-                        p.stok <= 5 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-800'
-                      }`}>
-                        Stok: {p.stok}
-                      </span>
+                      
+                      {/* Action buttons: Edit & Hapus */}
+                      <div className="flex items-center space-x-1">
+                        <button
+                          type="button"
+                          onClick={(e) => handleEditProduct(e, p)}
+                          title="Edit Produk"
+                          className="p-1 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 active:scale-95 transition"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteProduct(p.id_produk, p.nama_produk);
+                          }}
+                          title="Hapus Produk"
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 active:scale-95 transition"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    <h3 className="font-bold text-slate-800 text-xs sm:text-sm mt-2 line-clamp-2 leading-tight">
+                    <h3 className="font-bold text-slate-800 text-xs sm:text-sm line-clamp-2 leading-tight">
                       {p.nama_produk}
                     </h3>
                   </div>
 
-                  <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                    <span className="font-mono font-black text-xs sm:text-sm text-slate-900">
-                      Rp {p.harga_jual.toLocaleString('id-ID')}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={isOutOfStock}
-                      className="p-1.5 bg-[#c5a059]/15 hover:bg-[#c5a059] text-slate-900 rounded-lg transition"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="mt-3 pt-2.5 border-t border-slate-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                        p.stok <= 5 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        Stok: {p.stok} {p.satuan || ''}
+                      </span>
+                      {p.barcode && (
+                        <span className="text-[10px] text-slate-400 font-mono" title={`Barcode: ${p.barcode}`}>
+                          {p.barcode.slice(-6)}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-black text-xs sm:text-sm text-slate-900">
+                        Rp {p.harga_jual.toLocaleString('id-ID')}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={isOutOfStock}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!isOutOfStock) addToCart(p);
+                        }}
+                        className={`p-1.5 rounded-lg transition active:scale-90 ${
+                          isOutOfStock 
+                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                            : 'bg-[#c5a059]/15 hover:bg-[#c5a059] text-slate-900'
+                        }`}
+                        title="Tambah ke Keranjang"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -623,7 +690,9 @@ export default function PosKasirView() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Jumlah Stok Awal</label>
+                  <label className="font-bold text-slate-700 block mb-1">
+                    {editingProduct ? 'Jumlah Stok' : 'Jumlah Stok Awal'}
+                  </label>
                   <input
                     type="number"
                     required
@@ -643,19 +712,34 @@ export default function PosKasirView() {
                 </div>
               </div>
 
-              <div className="flex space-x-2 pt-3">
+              <div className="flex items-center space-x-2 pt-3">
+                {editingProduct && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const p = editingProduct;
+                      setShowProductModal(false);
+                      handleDeleteProduct(p.id_produk, p.nama_produk);
+                    }}
+                    className="px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold flex items-center space-x-1 transition text-xs"
+                    title="Hapus produk ini dari katalog"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Hapus</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowProductModal(false)}
-                  className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold"
+                  className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 rounded-xl bg-[#c5a059] text-slate-950 font-black shadow"
+                  className="flex-1 py-2 rounded-xl bg-[#c5a059] hover:bg-[#b89047] text-slate-950 font-black shadow transition"
                 >
-                  Simpan Produk
+                  {editingProduct ? 'Perbarui Produk' : 'Simpan Produk'}
                 </button>
               </div>
             </form>

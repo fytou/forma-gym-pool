@@ -693,21 +693,41 @@ app.post('/api/checkin/scan', (req, res) => {
 
     let rawCode = code.trim();
     // In case scanner scanned a full URL (e.g. https://.../FM-2026-00112)
-    if (rawCode.includes('/')) {
+    if (rawCode.includes('http://') || rawCode.includes('https://')) {
       const parts = rawCode.split('/');
       rawCode = parts[parts.length - 1];
     }
     // Clean any whitespace, non-printable characters or Carriage Return (\r, \n)
-    const cleanCode = rawCode.replace(/[\r\n\t]/g, '').trim();
-    const upperCode = cleanCode.toUpperCase();
+    let cleanCode = rawCode.replace(/[\r\n\t]/g, '').trim();
+
+    // Normalization for hardware barcode/QR scanner formats:
+    // e.g. iWare sends "MEM/000109" -> normalize to "MEM-000109"
+    // e.g. scanner sends "000109" -> normalize to "MEM-000109"
+    let normalizedVariants = [cleanCode, cleanCode.toUpperCase()];
+    
+    // Replace slash or underscore with hyphen for MEM/000109
+    if (/^MEM[\/_]/i.test(cleanCode)) {
+      const fixed = cleanCode.replace(/^MEM[\/_]/i, 'MEM-').toUpperCase();
+      normalizedVariants.push(fixed);
+    }
+    // Pure 5-6 digits (e.g. 000109) -> check MEM-000109
+    if (/^\d{5,6}$/.test(cleanCode)) {
+      normalizedVariants.push(`MEM-${cleanCode}`);
+    }
+
     const todayStr = new Date().toISOString().split('T')[0];
     const nowTimeStr = new Date().toTimeString().split(' ')[0].substring(0, 5); // HH:mm
 
-    // Find member by qr_code OR id_member (case-insensitive) OR phone
-    let memberRow = db.prepare(`
-      SELECT id_member FROM members 
-      WHERE UPPER(qr_code) = ? OR UPPER(id_member) = ? OR no_hp = ? OR qr_code = ? OR id_member = ?
-    `).get(upperCode, upperCode, cleanCode, cleanCode, cleanCode);
+    // Find member by qr_code OR id_member (case-insensitive) OR phone across all normalized variants
+    let memberRow = null;
+    for (const variant of normalizedVariants) {
+      const uVar = variant.toUpperCase();
+      memberRow = db.prepare(`
+        SELECT id_member FROM members 
+        WHERE UPPER(qr_code) = ? OR UPPER(id_member) = ? OR no_hp = ? OR qr_code = ? OR id_member = ?
+      `).get(uVar, uVar, variant, variant, variant);
+      if (memberRow) break;
+    }
 
     if (!memberRow) {
       return res.status(404).json({

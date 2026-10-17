@@ -24,15 +24,15 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, onLogout 
   }, []);
 
   const allNavItems = [
-    { id: 'checkin', label: 'Check-in & Akses', icon: Scan, badge: 'Front Desk', roles: ['superadmin', 'kasir'] },
-    { id: 'pos', label: 'POS Kasir', icon: ShoppingCart, roles: ['superadmin', 'kasir'] },
-    { id: 'trainer', label: 'Trainer (PT)', icon: Dumbbell, roles: ['superadmin', 'kasir'] },
-    { id: 'loker', label: 'Fasilitas Loker', icon: KeyRound, roles: ['superadmin', 'kasir'] },
-    { id: 'members', label: 'Data Member', icon: Users, roles: ['superadmin', 'kasir'] },
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['superadmin', 'kasir'] },
-    { id: 'register', label: 'Daftar Member', icon: UserPlus, roles: ['superadmin', 'kasir'] },
-    { id: 'packages', label: 'Paket', icon: Package, roles: ['superadmin'] },
+    { id: 'checkin', label: 'Check-in & Akses', icon: Scan, badge: 'Front Desk', roles: ['superadmin', 'kasir'] },
     { id: 'logs', label: 'Riwayat Log', icon: History, roles: ['superadmin', 'kasir'] },
+    { id: 'register', label: 'Daftar Member', icon: UserPlus, roles: ['superadmin', 'kasir'] },
+    { id: 'members', label: 'Data Member', icon: Users, roles: ['superadmin', 'kasir'] },
+    { id: 'loker', label: 'Fasilitas Loker', icon: KeyRound, roles: ['superadmin', 'kasir'] },
+    { id: 'trainer', label: 'Trainer (PT)', icon: Dumbbell, roles: ['superadmin', 'kasir'] },
+    { id: 'pos', label: 'POS Kasir', icon: ShoppingCart, roles: ['superadmin', 'kasir'] },
+    { id: 'packages', label: 'Paket', icon: Package, roles: ['superadmin'] },
     { id: 'transactions', label: 'Keuangan', icon: Receipt, roles: ['superadmin'] },
     { id: 'users', label: 'Kelola Kasir', icon: Shield, roles: ['superadmin'] },
   ];

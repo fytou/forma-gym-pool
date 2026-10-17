@@ -150,21 +150,58 @@ export default function CheckInView({ onNavigateToRegister }) {
     }
   }
 
+  // Anti double-scan ref (timestamp and lastCode)
+  const lastScanTimeRef = useRef(0);
+  const lastScanCodeRef = useRef('');
+
+  // Normalize scanned input (e.g. MEM/000109 -> MEM-000109)
+  const normalizeScanCode = (raw) => {
+    if (!raw) return '';
+    let c = raw.trim();
+    if (c.includes('http://') || c.includes('https://')) {
+      const parts = c.split('/');
+      c = parts[parts.length - 1];
+    }
+    // Replace MEM/ or MEM_ with MEM-
+    if (/^MEM[\/_]/i.test(c)) {
+      c = c.replace(/^MEM[\/_]/i, 'MEM-').toUpperCase();
+    } else if (/^\d{5,6}$/.test(c)) {
+      c = `MEM-${c}`;
+    }
+    return c;
+  };
+
   // Handle barcode / keyboard submission
   const handleScanSubmit = async (e) => {
     if (e) e.preventDefault();
     if (!inputCode.trim()) return;
 
-    await executeScan(inputCode.trim());
-    setInputCode('');
+    const codeToScan = inputCode.trim();
+    setInputCode(''); // Clear immediately so scanner doesn't accumulate
+    await executeScan(codeToScan);
     focusInput();
   };
 
-  // Main scan execution
+  // Main scan execution with 1.5s anti double-scan protection
   async function executeScan(code) {
+    if (!code || !code.trim()) return;
+
+    const normalized = normalizeScanCode(code);
+    const now = Date.now();
+
+    // Anti double-scan protection (1.5 seconds cooldown on same code)
+    if (lastScanCodeRef.current === normalized && (now - lastScanTimeRef.current) < 1500) {
+      console.warn('Anti double-scan triggered: ignoring duplicate scan within 1.5s');
+      focusInput();
+      return;
+    }
+
+    lastScanTimeRef.current = now;
+    lastScanCodeRef.current = normalized;
+
     setLoading(true);
     try {
-      const res = await scanCheckin(code, selectedFacility, mode);
+      const res = await scanCheckin(normalized, selectedFacility, mode);
       setScanResult(res);
 
       if (res.status === 'ACCESS_GRANTED') {
@@ -187,6 +224,8 @@ export default function CheckInView({ onNavigateToRegister }) {
       playDeniedSound();
     } finally {
       setLoading(false);
+      setInputCode('');
+      focusInput();
     }
   }
 

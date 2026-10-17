@@ -276,12 +276,32 @@ function seedDatabase() {
       VALUES (?, ?, ?, ?, ?, ?)
     `);
 
-    insertPackage.run('Monthly Gym', 250000, 30, '1 Bulan (30 Hari)', 'Gym', 'Akses penuh seluruh alat fitness & area gym');
-    insertPackage.run('Monthly Pool', 200000, 30, '1 Bulan (30 Hari)', 'Pool', 'Akses kolam renang semi-olympic setiap hari');
-    insertPackage.run('Monthly Gym + Pool', 350000, 30, '1 Bulan (30 Hari)', 'Gym+Pool', 'Paket combo lengkap: bebas akses Gym & Kolam Renang');
-    insertPackage.run('3 Months Gym', 650000, 90, '3 Bulan (90 Hari)', 'Gym', 'Paket hemat gym 3 bulan hemat Rp 100.000');
-    insertPackage.run('3 Months Gym + Pool', 900000, 90, '3 Bulan (90 Hari)', 'Gym+Pool', 'Paket hemat combo 3 bulan akses tanpa batas');
+    insertPackage.run('1 Month Gym', 250000, 30, '1 Bulan (30 Hari)', 'Gym', 'Akses penuh seluruh alat fitness & area gym');
+    insertPackage.run('1 Month Pool', 200000, 30, '1 Bulan (30 Hari)', 'Pool', 'Akses kolam renang semi-olympic setiap hari');
+    insertPackage.run('1 Month Full Access', 350000, 30, '1 Bulan (30 Hari)', 'Gym+Pool', 'Paket combo lengkap: bebas akses Gym & Kolam Renang');
+    insertPackage.run('3 Month Gym', 650000, 90, '3 Bulan (90 Hari)', 'Gym', 'Paket hemat gym 3 bulan');
+    insertPackage.run('3 Month Pool', 550000, 90, '3 Bulan (90 Hari)', 'Pool', 'Paket hemat kolam renang 3 bulan');
+    insertPackage.run('3 Month Full Access', 900000, 90, '3 Bulan (90 Hari)', 'Gym+Pool', 'Paket hemat combo 3 bulan akses tanpa batas');
     insertPackage.run('Annual All Access', 3200000, 365, '1 Tahun (365 Hari)', 'Gym+Pool', 'Member VIP tahunan Gym & Pool all access');
+  } else {
+    // Migration for existing packages to clean standard naming
+    try {
+      db.prepare("UPDATE packages SET nama_paket = '1 Month Gym' WHERE nama_paket = 'Monthly Gym'").run();
+      db.prepare("UPDATE packages SET nama_paket = '1 Month Pool' WHERE nama_paket = 'Monthly Pool'").run();
+      db.prepare("UPDATE packages SET nama_paket = '1 Month Full Access' WHERE nama_paket = 'Monthly Gym + Pool'").run();
+      db.prepare("UPDATE packages SET nama_paket = '3 Month Gym' WHERE nama_paket = '3 Months Gym'").run();
+      db.prepare("UPDATE packages SET nama_paket = '3 Month Full Access' WHERE nama_paket = '3 Months Gym + Pool'").run();
+
+      const has3Pool = db.prepare("SELECT id_paket FROM packages WHERE nama_paket = '3 Month Pool'").get();
+      if (!has3Pool) {
+        db.prepare(`
+          INSERT INTO packages (nama_paket, harga, durasi, durasi_label, fasilitas, deskripsi)
+          VALUES ('3 Month Pool', 550000, 90, '3 Bulan (90 Hari)', 'Pool', 'Paket hemat kolam renang 3 bulan')
+        `).run();
+      }
+    } catch (e) {
+      console.error('Error migrating package names:', e);
+    }
   }
 
   const memberCount = db.prepare('SELECT COUNT(*) as count FROM members').get().count;
@@ -478,16 +498,22 @@ function seedDatabase() {
     insertPTMember.run('MEM-000103', 2, '5 Sesi PT Fat Loss Intensive', 5, 4, 700000, 'Aktif');
   }
 
-  // 4. Seed Lockers if empty
+  // 4. Seed Lockers (Laki-laki 44 loker: L01..L44, Perempuan 17 loker: P01..P17)
   const lockerCount = db.prepare('SELECT COUNT(*) as count FROM lockers').get().count;
-  if (lockerCount === 0) {
-    console.log('Seeding Lockers...');
+  const hasLegacyLocker = db.prepare("SELECT id_loker FROM lockers WHERE nomor_loker LIKE 'A-%' LIMIT 1").get();
+
+  if (lockerCount === 0 || hasLegacyLocker) {
+    console.log('Seeding / Re-migrating Lockers (44 Pria L01-L44, 17 Wanita P01-P17)...');
+    db.prepare('DELETE FROM lockers').run();
+
     const insertLocker = db.prepare(`
       INSERT INTO lockers (nomor_loker, area, status, member_id, nama_peminjam, jam_pinjam)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
-    for (let i = 1; i <= 10; i++) {
-      const no = `A-${String(i).padStart(2, '0')}`;
+
+    // Laki-laki: 44 loker (L01 .. L44)
+    for (let i = 1; i <= 44; i++) {
+      const no = `L${String(i).padStart(2, '0')}`;
       if (i === 1) {
         insertLocker.run(no, 'Loker Pria', 'Digunakan', 'MEM-000106', 'Rizky Pratama', '13:30');
       } else if (i === 2) {
@@ -496,8 +522,10 @@ function seedDatabase() {
         insertLocker.run(no, 'Loker Pria', 'Tersedia', null, null, null);
       }
     }
-    for (let i = 1; i <= 10; i++) {
-      const no = `B-${String(i).padStart(2, '0')}`;
+
+    // Perempuan: 17 loker (P01 .. P17)
+    for (let i = 1; i <= 17; i++) {
+      const no = `P${String(i).padStart(2, '0')}`;
       insertLocker.run(no, 'Loker Wanita', 'Tersedia', null, null, null);
     }
   }

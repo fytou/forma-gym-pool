@@ -404,24 +404,25 @@ app.get('/api/members/:id', (req, res) => {
   }
 });
 
-// Auto-generate ID Member (FM-YYYY-00001 format matching FORMA standard)
+// Auto-generate ID Member (Consistent MEM-000101, MEM-000102, ... standard format)
 function generateNextMemberId() {
-  const currentYear = new Date().getFullYear();
-  const last = db.prepare('SELECT id_member FROM members ORDER BY rowid DESC LIMIT 1').get();
-  if (!last || !last.id_member) {
-    return `FM-${currentYear}-00001`;
+  const members = db.prepare('SELECT id_member FROM members').all();
+  let maxSeq = 100;
+
+  for (const m of members) {
+    if (!m.id_member) continue;
+    // Match any numeric suffix from MEM-000109 or FM-2026-00113 or 000109
+    const match = m.id_member.match(/(\d{3,6})$/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxSeq) {
+        maxSeq = num;
+      }
+    }
   }
-  const fmMatch = last.id_member.match(/FM-(\d{4})-(\d+)/);
-  if (fmMatch) {
-    const num = parseInt(fmMatch[2], 10) + 1;
-    return `FM-${fmMatch[1]}-${String(num).padStart(5, '0')}`;
-  }
-  const memMatch = last.id_member.match(/MEM-(\d+)/);
-  if (memMatch) {
-    const num = parseInt(memMatch[1], 10) + 1;
-    return `FM-${currentYear}-${String(num).padStart(5, '0')}`;
-  }
-  return `FM-${currentYear}-00001`;
+
+  const nextSeq = maxSeq + 1;
+  return `MEM-${String(nextSeq).padStart(6, '0')}`;
 }
 
 // Register Member Baru (< 2 Menit workflow)
@@ -700,19 +701,34 @@ app.post('/api/checkin/scan', (req, res) => {
     // Clean any whitespace, non-printable characters or Carriage Return (\r, \n)
     let cleanCode = rawCode.replace(/[\r\n\t]/g, '').trim();
 
-    // Normalization for hardware barcode/QR scanner formats:
-    // e.g. iWare sends "MEM/000109" -> normalize to "MEM-000109"
-    // e.g. scanner sends "000109" -> normalize to "MEM-000109"
+    // Comprehensive Normalization for hardware barcode/QR scanner formats:
+    // e.g. iWare sends "MEM/000109" -> "MEM-000109"
+    // e.g. scanner sends "000109" -> "MEM-000109"
+    // e.g. scanner sends "00113" -> "FM-2026-00113" or "MEM-000113"
+    // e.g. scanner sends "FM/2026/00112" -> "FM-2026-00112"
     let normalizedVariants = [cleanCode, cleanCode.toUpperCase()];
     
-    // Replace slash or underscore with hyphen for MEM/000109
+    // 1. Slash or underscore in MEM prefix
     if (/^MEM[\/_]/i.test(cleanCode)) {
-      const fixed = cleanCode.replace(/^MEM[\/_]/i, 'MEM-').toUpperCase();
-      normalizedVariants.push(fixed);
+      normalizedVariants.push(cleanCode.replace(/^MEM[\/_]/i, 'MEM-').toUpperCase());
     }
-    // Pure 5-6 digits (e.g. 000109) -> check MEM-000109
+    // 2. Slash or underscore in FM prefix
+    if (/^FM[\/_]/i.test(cleanCode)) {
+      normalizedVariants.push(cleanCode.replace(/[\/_]/g, '-').toUpperCase());
+    }
+    // 3. Raw 5-6 digits (e.g. 000109 or 00113)
     if (/^\d{5,6}$/.test(cleanCode)) {
       normalizedVariants.push(`MEM-${cleanCode}`);
+      normalizedVariants.push(`MEM-000${cleanCode.slice(-3)}`);
+      normalizedVariants.push(`FM-2026-${cleanCode}`);
+      normalizedVariants.push(`FM-2026-00${cleanCode.slice(-3)}`);
+    }
+    // 4. If code is MEM-000113, also allow matching FM-2026-00113 and vice versa
+    const numPart = cleanCode.match(/(\d{3,6})$/);
+    if (numPart) {
+      const padNum = numPart[1].padStart(5, '0');
+      normalizedVariants.push(`MEM-${numPart[1].padStart(6, '0')}`);
+      normalizedVariants.push(`FM-2026-${padNum}`);
     }
 
     const todayStr = new Date().toISOString().split('T')[0];

@@ -154,7 +154,7 @@ export default function CheckInView({ onNavigateToRegister }) {
   const lastScanTimeRef = useRef(0);
   const lastScanCodeRef = useRef('');
 
-  // Normalize scanned input (e.g. MEM/000109 -> MEM-000109)
+  // Normalize scanned input (e.g. MEM/000109 -> MEM-000109, FM/2026/00113 -> FM-2026-00113)
   const normalizeScanCode = (raw) => {
     if (!raw) return '';
     let c = raw.trim();
@@ -165,6 +165,8 @@ export default function CheckInView({ onNavigateToRegister }) {
     // Replace MEM/ or MEM_ with MEM-
     if (/^MEM[\/_]/i.test(c)) {
       c = c.replace(/^MEM[\/_]/i, 'MEM-').toUpperCase();
+    } else if (/^FM[\/_]/i.test(c)) {
+      c = c.replace(/[\/_]/g, '-').toUpperCase();
     } else if (/^\d{5,6}$/.test(c)) {
       c = `MEM-${c}`;
     }

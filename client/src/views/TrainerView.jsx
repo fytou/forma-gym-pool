@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, UserCheck, Dumbbell, Plus, Search, Calendar, 
   CheckCircle2, Clock, X, AlertCircle, RefreshCw, Trash2,
-  ChevronLeft, ChevronRight, Archive, Sparkles
+  ChevronLeft, ChevronRight, Archive, Sparkles, Pencil
 } from 'lucide-react';
 import { 
-  getTrainers, addTrainer, getTrainerMembers, registerTrainerMember, 
-  checkinTrainerSession, getTrainerSessions, getMembers, renewTrainerMember, 
-  deleteTrainerMember 
+  getTrainers, addTrainer, updateTrainer, deleteTrainer, 
+  getTrainerMembers, registerTrainerMember, checkinTrainerSession, 
+  getTrainerSessions, getMembers, renewTrainerMember, deleteTrainerMember 
 } from '../utils/api';
 
 export default function TrainerView() {
@@ -59,6 +59,16 @@ export default function TrainerView() {
   // Add Trainer Modal
   const [showAddTrainerModal, setShowAddTrainerModal] = useState(false);
   const [trainerForm, setTrainerForm] = useState({
+    nama_trainer: '',
+    no_hp: '',
+    spesialisasi: 'Fitness & Strength',
+    foto: ''
+  });
+
+  // Edit Trainer Modal State
+  const [showEditTrainerModal, setShowEditTrainerModal] = useState(false);
+  const [editingTrainer, setEditingTrainer] = useState(null);
+  const [editTrainerForm, setEditTrainerForm] = useState({
     nama_trainer: '',
     no_hp: '',
     spesialisasi: 'Fitness & Strength',
@@ -220,6 +230,50 @@ export default function TrainerView() {
       }
     } catch (err) {
       alert('Gagal menambah trainer');
+    }
+  };
+
+  const handleOpenEditTrainer = (trainer) => {
+    setEditingTrainer(trainer);
+    setEditTrainerForm({
+      nama_trainer: trainer.nama_trainer || '',
+      no_hp: trainer.no_hp || '',
+      spesialisasi: trainer.spesialisasi || 'Fitness & Strength',
+      foto: trainer.foto || ''
+    });
+    setShowEditTrainerModal(true);
+  };
+
+  const handleUpdateTrainer = async (e) => {
+    e.preventDefault();
+    if (!editingTrainer) return;
+    try {
+      const res = await updateTrainer(editingTrainer.id_trainer, editTrainerForm);
+      if (res.success) {
+        setShowEditTrainerModal(false);
+        setEditingTrainer(null);
+        alert(res.message || 'Data trainer berhasil diperbarui');
+        loadData();
+      } else {
+        alert(res.message || 'Gagal memperbarui trainer');
+      }
+    } catch (err) {
+      alert('Terjadi kesalahan saat memperbarui trainer');
+    }
+  };
+
+  const handleDeleteTrainer = async (id, name) => {
+    if (!window.confirm(`Yakin ingin menghapus trainer "${name}"?`)) return;
+    try {
+      const res = await deleteTrainer(id);
+      if (res.success) {
+        alert(res.message || 'Trainer berhasil dihapus');
+        loadData();
+      } else {
+        alert(res.message || 'Gagal menghapus trainer');
+      }
+    } catch (err) {
+      alert('Terjadi kesalahan saat menghapus trainer');
     }
   };
 
@@ -518,21 +572,53 @@ export default function TrainerView() {
 
       {/* TAB 3: MASTER TRAINERS */}
       {activeTab === 'trainers' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {trainers.map((t) => (
-            <div key={t.id_trainer} className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex items-center space-x-4">
-              <img
-                src={t.foto || 'https://images.unsplash.com/photo-1567013127542-490d757e51fc?w=200'}
-                alt={t.nama_trainer}
-                className="w-16 h-16 rounded-xl object-cover border border-[#c5a059]"
-              />
-              <div>
-                <h3 className="font-black text-slate-900 text-sm">{t.nama_trainer}</h3>
-                <p className="text-xs text-[#c5a059] font-bold">{t.spesialisasi}</p>
-                <p className="text-[11px] text-slate-500 font-mono mt-0.5">{t.no_hp || '-'}</p>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {trainers.map((t) => (
+              <div key={t.id_trainer} className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex items-center justify-between gap-3 group hover:border-[#c5a059] transition">
+                <div className="flex items-center space-x-3.5 min-w-0">
+                  <img
+                    src={t.foto || 'https://images.unsplash.com/photo-1567013127542-490d757e51fc?w=200'}
+                    alt={t.nama_trainer}
+                    className="w-16 h-16 rounded-xl object-cover border border-[#c5a059] flex-shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <h3 className="font-black text-slate-900 text-sm truncate">{t.nama_trainer}</h3>
+                    <p className="text-xs text-[#c5a059] font-bold truncate">{t.spesialisasi}</p>
+                    <p className="text-[11px] text-slate-500 font-mono mt-0.5">{t.no_hp || '-'}</p>
+                  </div>
+                </div>
+
+                {/* Edit & Delete Action Buttons */}
+                <div className="flex items-center space-x-1 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditTrainer(t)}
+                    className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition"
+                    title="Edit Data Trainer"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteTrainer(t.id_trainer, t.nama_trainer)}
+                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition"
+                    title="Hapus Trainer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
+            ))}
+          </div>
+
+          {trainers.length === 0 && (
+            <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 text-slate-400">
+              <Dumbbell className="w-12 h-12 mx-auto mb-2 text-slate-300" />
+              <p className="font-bold text-sm">Belum ada Master Trainer</p>
+              <p className="text-xs mt-1">Klik tombol Tambah Trainer di atas untuk mendaftarkan trainer baru</p>
             </div>
-          ))}
+          )}
         </div>
       )}
 
@@ -985,6 +1071,99 @@ export default function TrainerView() {
                   className="flex-1 py-2 rounded-xl bg-[#c5a059] text-slate-950 font-black shadow"
                 >
                   Simpan Trainer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDIT TRAINER */}
+      {showEditTrainerModal && editingTrainer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <div>
+                <h3 className="font-black text-slate-900 text-base">Edit Data Master Trainer</h3>
+                <p className="text-[11px] text-slate-500">Perbarui profil, spesialisasi, atau nomor kontak trainer</p>
+              </div>
+              <button onClick={() => setShowEditTrainerModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateTrainer} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Nama Trainer</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Coach Randy Kurniawan"
+                  value={editTrainerForm.nama_trainer}
+                  onChange={(e) => setEditTrainerForm({ ...editTrainerForm, nama_trainer: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-[#c5a059]"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">No. WhatsApp</label>
+                <input
+                  type="text"
+                  placeholder="08123456789"
+                  value={editTrainerForm.no_hp}
+                  onChange={(e) => setEditTrainerForm({ ...editTrainerForm, no_hp: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Spesialisasi</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Bodybuilding, Fat Loss, Renang"
+                  value={editTrainerForm.spesialisasi}
+                  onChange={(e) => setEditTrainerForm({ ...editTrainerForm, spesialisasi: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-[#c5a059]"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Link Foto / Avatar (Opsional)</label>
+                <input
+                  type="text"
+                  placeholder="https://..."
+                  value={editTrainerForm.foto}
+                  onChange={(e) => setEditTrainerForm({ ...editTrainerForm, foto: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono text-[11px]"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = editingTrainer;
+                    setShowEditTrainerModal(false);
+                    handleDeleteTrainer(t.id_trainer, t.nama_trainer);
+                  }}
+                  className="px-3 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold flex items-center space-x-1"
+                  title="Hapus Trainer Ini"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Hapus</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowEditTrainerModal(false)}
+                  className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl bg-[#c5a059] hover:bg-[#b89047] text-slate-950 font-black shadow"
+                >
+                  Perbarui Trainer
                 </button>
               </div>
             </form>

@@ -351,6 +351,28 @@ export async function addTrainer(trainerData) {
   return res.json();
 }
 
+export async function updateTrainer(id, trainerData) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/trainers/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(trainerData)
+  });
+  return res.json();
+}
+
+export async function deleteTrainer(id) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/trainers/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  return res.json();
+}
+
 export async function getTrainerMembers(params = {}) {
   const query = new URLSearchParams();
   if (params.search) query.append('search', params.search);

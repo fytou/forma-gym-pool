@@ -1447,6 +1447,43 @@ app.post('/api/trainers', authenticateToken, (req, res) => {
   }
 });
 
+// Update trainer
+app.put('/api/trainers/:id', authenticateToken, (req, res) => {
+  try {
+    const { nama_trainer, no_hp, spesialisasi, foto } = req.body;
+    if (!nama_trainer) return res.status(400).json({ success: false, message: 'Nama trainer wajib diisi' });
+
+    db.prepare(`
+      UPDATE trainers
+      SET nama_trainer = ?, no_hp = ?, spesialisasi = ?, foto = ?
+      WHERE id_trainer = ?
+    `).run(nama_trainer.trim(), no_hp || '', spesialisasi || 'Fitness & Strength', foto || '', req.params.id);
+
+    res.json({ success: true, message: 'Data trainer berhasil diperbarui' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Delete trainer
+app.delete('/api/trainers/:id', authenticateToken, (req, res) => {
+  try {
+    // Check if trainer is used in trainer_members that are active
+    const activePT = db.prepare('SELECT COUNT(*) as count FROM trainer_members WHERE id_trainer = ? AND status = ?').get(req.params.id, 'Aktif');
+    if (activePT && activePT.count > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Tidak dapat menghapus trainer ini karena masih membina ${activePT.count} member PT aktif. Selesaikan atau ubah trainer member terlebih dahulu.` 
+      });
+    }
+
+    db.prepare('DELETE FROM trainers WHERE id_trainer = ?').run(req.params.id);
+    res.json({ success: true, message: 'Trainer berhasil dihapus' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Get all PT members with filters and pagination
 app.get('/api/trainers/members', (req, res) => {
   try {

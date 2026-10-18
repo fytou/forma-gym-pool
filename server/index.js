@@ -1415,6 +1415,37 @@ app.get('/api/pos/history', authenticateToken, (req, res) => {
   }
 });
 
+// Delete / Void POS Transaction (Rollback stock and delete transaction & items)
+app.delete('/api/pos/transactions/:id', authenticateToken, (req, res) => {
+  try {
+    const trxId = req.params.id;
+    const trx = db.prepare('SELECT * FROM pos_transactions WHERE id_transaksi_pos = ? OR nomor_struk = ?').get(trxId, trxId);
+    if (!trx) {
+      return res.status(404).json({ success: false, message: 'Transaksi struk kasir tidak ditemukan' });
+    }
+
+    // Restore stock for each item
+    const items = db.prepare('SELECT * FROM pos_transaction_items WHERE id_transaksi_pos = ?').all(trx.id_transaksi_pos);
+    const restoreStock = db.prepare('UPDATE pos_products SET stok = stok + ? WHERE id_produk = ?');
+    for (const item of items) {
+      if (item.id_produk) {
+        restoreStock.run(item.qty, item.id_produk);
+      }
+    }
+
+    // Delete items and transaction
+    db.prepare('DELETE FROM pos_transaction_items WHERE id_transaksi_pos = ?').run(trx.id_transaksi_pos);
+    db.prepare('DELETE FROM pos_transactions WHERE id_transaksi_pos = ?').run(trx.id_transaksi_pos);
+
+    res.json({
+      success: true,
+      message: `Struk ${trx.nomor_struk} berhasil dibatalkan dan dihapus. Stok barang telah dikembalikan.`
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 
 // ==========================================
 // 9. TRAINER & PT ENDPOINTS
@@ -1929,6 +1960,36 @@ app.post('/api/finance/expenses', authenticateToken, requireRole(['superadmin'])
     `).run(kategori, deskripsi.trim(), Number(nominal), metode_bayar || 'Tunai', pic);
 
     res.json({ success: true, message: 'Pengeluaran berhasil dicatat' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Update Expense
+app.put('/api/finance/expenses/:id', authenticateToken, requireRole(['superadmin']), (req, res) => {
+  try {
+    const { kategori, deskripsi, nominal, metode_bayar } = req.body;
+    if (!kategori || !deskripsi || !nominal) {
+      return res.status(400).json({ success: false, message: 'Kategori, deskripsi, dan nominal wajib diisi' });
+    }
+    const pic = req.user ? (req.user.nama_lengkap || req.user.username) : 'Admin';
+    db.prepare(`
+      UPDATE expenses
+      SET kategori = ?, deskripsi = ?, nominal = ?, metode_bayar = ?, pic = ?
+      WHERE id_pengeluaran = ?
+    `).run(kategori, deskripsi.trim(), Number(nominal), metode_bayar || 'Tunai', pic, req.params.id);
+
+    res.json({ success: true, message: 'Catatan pengeluaran berhasil diperbarui' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Delete Expense
+app.delete('/api/finance/expenses/:id', authenticateToken, requireRole(['superadmin']), (req, res) => {
+  try {
+    db.prepare('DELETE FROM expenses WHERE id_pengeluaran = ?').run(req.params.id);
+    res.json({ success: true, message: 'Catatan pengeluaran berhasil dihapus' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

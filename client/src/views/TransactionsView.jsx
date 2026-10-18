@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   Receipt, Wallet, RefreshCw, Calendar, Search, Filter, 
   ChevronLeft, ChevronRight, User, ArrowDownRight, CreditCard,
-  TrendingUp, Download, Eye, CheckCircle2, DollarSign, Plus, ArrowUpRight, ShoppingBag, Dumbbell, X, Layers
+  TrendingUp, Download, Eye, CheckCircle2, DollarSign, Plus, ArrowUpRight, ShoppingBag, Dumbbell, X, Layers,
+  Pencil, Trash2
 } from 'lucide-react';
 import { 
   getTransactions, formatRupiah, formatDateIndo, getFinanceSummary, 
-  addExpense, getPosHistory, getTrainerMembers, getUnifiedTransactions, getExpenses 
+  addExpense, updateExpense, deleteExpense, getPosHistory, deletePosTransaction, getTrainerMembers, getUnifiedTransactions, getExpenses 
 } from '../utils/api';
 
 export default function TransactionsView() {
@@ -15,6 +16,16 @@ export default function TransactionsView() {
   const [financeSummary, setFinanceSummary] = useState(null);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseForm, setExpenseForm] = useState({
+    kategori: 'Operasional',
+    deskripsi: '',
+    nominal: '',
+    metode_bayar: 'Tunai'
+  });
+
+  // Edit Expense State
+  const [editingExpense, setEditingExpense] = useState(null);
+  const [showEditExpenseModal, setShowEditExpenseModal] = useState(false);
+  const [editExpenseForm, setEditExpenseForm] = useState({
     kategori: 'Operasional',
     deskripsi: '',
     nominal: '',
@@ -62,11 +73,77 @@ export default function TransactionsView() {
         setShowExpenseModal(false);
         setExpenseForm({ kategori: 'Operasional', deskripsi: '', nominal: '', metode_bayar: 'Tunai' });
         fetchFinanceSummary();
+        fetchData();
       } else {
         alert(res.message);
       }
     } catch (e) {
       alert('Gagal menambah pengeluaran');
+    }
+  };
+
+  const handleOpenEditExpense = (exp) => {
+    setEditingExpense(exp);
+    setEditExpenseForm({
+      kategori: exp.kategori || 'Operasional',
+      deskripsi: exp.deskripsi || '',
+      nominal: exp.nominal || '',
+      metode_bayar: exp.metode_bayar || 'Tunai'
+    });
+    setShowEditExpenseModal(true);
+  };
+
+  const handleUpdateExpense = async (e) => {
+    e.preventDefault();
+    if (!editingExpense) return;
+    try {
+      const res = await updateExpense(editingExpense.id_pengeluaran, editExpenseForm);
+      if (res.success) {
+        setShowEditExpenseModal(false);
+        setEditingExpense(null);
+        fetchFinanceSummary();
+        fetchData();
+      } else {
+        alert(res.message || 'Gagal mengubah pengeluaran');
+      }
+    } catch (err) {
+      alert(err.message || 'Gagal mengubah pengeluaran');
+    }
+  };
+
+  const handleDeleteExpense = async (id, deskripsi) => {
+    if (!window.confirm(`Yakin ingin menghapus catatan pengeluaran "${deskripsi}"?\n\nTotal pengeluaran dan laba bersih di rekap keuangan akan langsung diperbarui.`)) {
+      return;
+    }
+    try {
+      const res = await deleteExpense(id);
+      if (res.success) {
+        fetchFinanceSummary();
+        fetchData();
+      } else {
+        alert(res.message || 'Gagal menghapus pengeluaran');
+      }
+    } catch (err) {
+      alert(err.message || 'Gagal menghapus pengeluaran');
+    }
+  };
+
+  const handleDeletePos = async (posId, nomorStruk) => {
+    if (!window.confirm(`Yakin ingin membatalkan & menghapus transaksi kasir "${nomorStruk}"?\n\nStok produk akan otomatis dikembalikan ke inventaris kasir, dan pendapatan penjualan akan dihapus dari rekap keuangan.`)) {
+      return;
+    }
+    try {
+      const res = await deletePosTransaction(posId);
+      if (res.success) {
+        alert(res.message);
+        setSelectedItem(null);
+        fetchFinanceSummary();
+        fetchData();
+      } else {
+        alert(res.message || 'Gagal membatalkan transaksi POS');
+      }
+    } catch (err) {
+      alert(err.message || 'Gagal membatalkan transaksi POS');
     }
   };
 
@@ -551,13 +628,24 @@ export default function TransactionsView() {
                             </td>
 
                             <td className="py-3 px-4 text-center">
-                              <button
-                                onClick={() => setSelectedItem(item)}
-                                className="p-1.5 rounded-lg text-slate-500 hover:text-[#967434] hover:bg-[#c5a059]/15 transition"
-                                title="Lihat Rincian Bukti Transaksi"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
+                              <div className="flex items-center justify-center space-x-1.5">
+                                <button
+                                  onClick={() => setSelectedItem(item)}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-[#967434] hover:bg-[#c5a059]/15 transition"
+                                  title="Lihat Rincian Bukti Transaksi"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                {item.kategori === 'POS Kasir' && (
+                                  <button
+                                    onClick={() => handleDeletePos(item.no_referensi || item.unique_id.replace('POS-', ''), item.no_referensi)}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                    title="Batalkan & Hapus Transaksi POS (Kembalikan Stok Barang)"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -878,6 +966,7 @@ export default function TransactionsView() {
                       <th className="p-3.5">Metode</th>
                       <th className="p-3.5">PIC</th>
                       <th className="p-3.5 text-right">Nominal</th>
+                      <th className="p-3.5 text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -894,6 +983,26 @@ export default function TransactionsView() {
                         <td className="p-3.5 text-slate-500">{e.pic}</td>
                         <td className="p-3.5 font-mono font-black text-rose-600 text-right">
                           - {formatRupiah(e.nominal)}
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <div className="flex items-center justify-end space-x-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditExpense(e)}
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-amber-600 hover:bg-amber-50 active:scale-95 transition"
+                              title="Edit Catatan Pengeluaran"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteExpense(e.id_pengeluaran, e.deskripsi)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 active:scale-95 transition"
+                              title="Hapus Catatan Pengeluaran"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1017,6 +1126,102 @@ export default function TransactionsView() {
                   className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black shadow"
                 >
                   Simpan Beban
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDIT PENGELUARAN */}
+      {showEditExpenseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <h3 className="font-black text-slate-900 text-base">Edit Catatan Pengeluaran</h3>
+              <button 
+                onClick={() => {
+                  setShowEditExpenseModal(false);
+                  setEditingExpense(null);
+                }} 
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateExpense} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Kategori Beban</label>
+                <select
+                  value={editExpenseForm.kategori}
+                  onChange={(e) => setEditExpenseForm({ ...editExpenseForm, kategori: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                >
+                  <option value="Operasional">Operasional Gym</option>
+                  <option value="Restock POS">Restock Barang Kasir (Minuman/F&B)</option>
+                  <option value="Perawatan Alat">Perawatan & Servis Mesin Fitness</option>
+                  <option value="Kebersihan & Kolam">Kimia Kolam Renang & Sanitasi</option>
+                  <option value="Gaji / Komisi">Komisi Trainer & Gaji Staff</option>
+                  <option value="Utilitas">Listrik, Air & Internet</option>
+                  <option value="Lainnya">Pengeluaran Lain-lain</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Deskripsi / Keperluan</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Beli kaporit kolam renang 1 pail"
+                  value={editExpenseForm.deskripsi}
+                  onChange={(e) => setEditExpenseForm({ ...editExpenseForm, deskripsi: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Nominal (Rp)</label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="Nominal"
+                    value={editExpenseForm.nominal}
+                    onChange={(e) => setEditExpenseForm({ ...editExpenseForm, nominal: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Metode Bayar</label>
+                  <select
+                    value={editExpenseForm.metode_bayar}
+                    onChange={(e) => setEditExpenseForm({ ...editExpenseForm, metode_bayar: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                  >
+                    <option value="Tunai">Tunai Kas Kecil</option>
+                    <option value="Transfer Bank">Transfer Bank</option>
+                    <option value="QRIS">QRIS</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditExpenseModal(false);
+                    setEditingExpense(null);
+                  }}
+                  className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black shadow"
+                >
+                  Simpan Perubahan
                 </button>
               </div>
             </form>

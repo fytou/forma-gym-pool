@@ -11,7 +11,9 @@ import {
   Dumbbell,
   Waves,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { getMembers, deleteMember, getStatusBadge, formatDateIndo, formatRupiah, getQrCode } from '../utils/api';
 import MemberCardModal from '../components/MemberCardModal';
@@ -21,6 +23,9 @@ export default function MembersView({ initialFilter = 'Semua', onNavigateToRegis
   const [members, setMembers] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(initialFilter);
+  const [facilityFilter, setFacilityFilter] = useState('Semua');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10); // 10, 25, 50, 'Semua'
   const [loading, setLoading] = useState(true);
 
   // Modals
@@ -46,6 +51,29 @@ export default function MembersView({ initialFilter = 'Semua', onNavigateToRegis
   useEffect(() => {
     fetchMembers();
   }, [search, statusFilter]);
+
+  // Reset page to 1 when any filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, facilityFilter, pageSize]);
+
+  // Filter members by facility
+  const filteredMembers = members.filter(m => {
+    if (facilityFilter !== 'Semua') {
+      const fac = (m.membership?.paket_fasilitas || '').toLowerCase();
+      if (facilityFilter === 'Gym' && !fac.includes('gym')) return false;
+      if (facilityFilter === 'Pool' && (!fac.includes('pool') && !fac.includes('renang') && !fac.includes('kolam'))) return false;
+      if (facilityFilter === 'Gym+Pool' && (!fac.includes('gym') || (!fac.includes('pool') && !fac.includes('renang')))) return false;
+    }
+    return true;
+  });
+
+  const totalFiltered = filteredMembers.length;
+  const isAll = pageSize === 'Semua';
+  const limit = isAll ? totalFiltered : Number(pageSize);
+  const totalPages = isAll ? 1 : Math.max(1, Math.ceil(totalFiltered / limit));
+  const startIndex = isAll ? 0 : (currentPage - 1) * limit;
+  const paginatedMembers = isAll ? filteredMembers : filteredMembers.slice(startIndex, startIndex + limit);
 
   const handleDelete = async (id, nama) => {
     if (!window.confirm(`Yakin ingin menghapus member ${nama} (${id})? Seluruh riwayat check-in akan terhapus.`)) {
@@ -97,42 +125,86 @@ export default function MembersView({ initialFilter = 'Semua', onNavigateToRegis
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-        {/* Search */}
-        <div className="relative w-full md:w-80">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari nama, No HP, atau ID member..."
-            className="w-full pl-9 pr-4 py-2 text-xs font-medium rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#c5a059]"
-          />
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+          {/* Search */}
+          <div className="relative w-full md:w-80">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari nama, No HP, atau ID member..."
+              className="w-full pl-9 pr-4 py-2 text-xs font-medium rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#c5a059]"
+            />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          </div>
+
+          {/* Status filter tabs */}
+          <div className="flex items-center space-x-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
+            {['Semua', 'Active', 'Expiring Soon', 'Expired'].map((st) => {
+              const isSelected = statusFilter === st;
+              let label = 'Semua Status';
+              if (st === 'Active') label = 'Aktif';
+              if (st === 'Expiring Soon') label = 'Akan Habis';
+              if (st === 'Expired') label = 'Expired';
+
+              return (
+                <button
+                  key={st}
+                  onClick={() => setStatusFilter(st)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex-shrink-0 ${
+                    isSelected
+                      ? 'bg-slate-900 text-[#dfc185] shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Status filter tabs */}
-        <div className="flex items-center space-x-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
-          {['Semua', 'Active', 'Expiring Soon', 'Expired'].map((st) => {
-            const isSelected = statusFilter === st;
-            let label = 'Semua Status';
-            if (st === 'Active') label = 'Aktif';
-            if (st === 'Expiring Soon') label = 'Akan Habis';
-            if (st === 'Expired') label = 'Expired';
-
-            return (
+        {/* Second Row: Facility Filter & Per Page Limit */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-100 text-xs">
+          {/* Facility Filter Pills */}
+          <div className="flex items-center space-x-1.5 overflow-x-auto">
+            <span className="text-slate-400 font-bold text-[11px] uppercase mr-1">Fasilitas:</span>
+            {[
+              { id: 'Semua', label: 'Semua' },
+              { id: 'Gym', label: '🏋️ Gym' },
+              { id: 'Pool', label: '🏊 Kolam Renang' },
+              { id: 'Gym+Pool', label: '🔥 Gym + Pool' }
+            ].map(f => (
               <button
-                key={st}
-                onClick={() => setStatusFilter(st)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex-shrink-0 ${
-                  isSelected
-                    ? 'bg-slate-900 text-[#dfc185] shadow-sm'
+                key={f.id}
+                type="button"
+                onClick={() => setFacilityFilter(f.id)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                  facilityFilter === f.id
+                    ? 'bg-[#c5a059] text-slate-950 font-black shadow-sm'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                {label}
+                {f.label}
               </button>
-            );
-          })}
+            ))}
+          </div>
+
+          {/* Page size limit */}
+          <div className="flex items-center space-x-2 self-end sm:self-auto">
+            <span className="text-slate-400 text-xs font-medium">Tampilkan:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(e.target.value === 'Semua' ? 'Semua' : Number(e.target.value))}
+              className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#c5a059]"
+            >
+              <option value={10}>10 per hal</option>
+              <option value={25}>25 per hal</option>
+              <option value={50}>50 per hal</option>
+              <option value="Semua">Semua ({members.length})</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -164,7 +236,7 @@ export default function MembersView({ initialFilter = 'Semua', onNavigateToRegis
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {members.map((m) => {
+                {paginatedMembers.map((m) => {
                   const badge = getStatusBadge(m.status);
                   const isExpiring = m.status === 'Expiring Soon';
                   return (
@@ -276,6 +348,67 @@ export default function MembersView({ initialFilter = 'Semua', onNavigateToRegis
                 })}
               </tbody>
             </table>
+
+            {/* Pagination Controls */}
+            {totalFiltered > 0 && (
+              <div className="px-4 py-3 bg-slate-50/80 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+                <div>
+                  Menampilkan <strong className="text-slate-800 font-bold">{isAll ? 1 : startIndex + 1}</strong> - <strong className="text-slate-800 font-bold">{Math.min(startIndex + limit, totalFiltered)}</strong> dari <strong className="text-slate-800 font-bold">{totalFiltered}</strong> member
+                  {members.length !== totalFiltered && (
+                    <span className="text-slate-400 ml-1">(difilter dari {members.length} total)</span>
+                  )}
+                </div>
+
+                {!isAll && totalPages > 1 && (
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage <= 1}
+                      className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                      title="Halaman Sebelumnya"
+                    >
+                      <ChevronLeft className="w-4 h-4 text-slate-600" />
+                    </button>
+
+                    <div className="flex items-center space-x-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                        .map((p, idx, arr) => {
+                          const prev = arr[idx - 1];
+                          const showEllipsis = prev && p - prev > 1;
+                          return (
+                            <React.Fragment key={p}>
+                              {showEllipsis && <span className="px-1 text-slate-400">...</span>}
+                              <button
+                                type="button"
+                                onClick={() => setCurrentPage(p)}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                                  currentPage === p
+                                    ? 'bg-slate-900 text-[#dfc185] shadow-sm'
+                                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                                }`}
+                              >
+                                {p}
+                              </button>
+                            </React.Fragment>
+                          );
+                        })}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages}
+                      className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                      title="Halaman Berikutnya"
+                    >
+                      <ChevronRight className="w-4 h-4 text-slate-600" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

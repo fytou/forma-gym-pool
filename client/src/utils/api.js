@@ -330,6 +330,15 @@ export async function getPosHistory(params = {}) {
   return res.json();
 }
 
+export async function deletePosTransaction(id) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/pos/transactions/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  return res.json();
+}
+
 // ==========================================
 // TRAINER / PT API
 // ==========================================
@@ -509,6 +518,28 @@ export async function addExpense(data) {
       'Authorization': `Bearer ${token}`
     },
     body: JSON.stringify(data)
+  });
+  return res.json();
+}
+
+export async function updateExpense(id, data) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/finance/expenses/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(data)
+  });
+  return res.json();
+}
+
+export async function deleteExpense(id) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/finance/expenses/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` }
   });
   return res.json();
 }

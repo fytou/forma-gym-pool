@@ -4,7 +4,7 @@ import {
   CreditCard, Banknote, QrCode, AlertCircle, PackageCheck, History, X,
   Pencil
 } from 'lucide-react';
-import { getPosProducts, addPosProduct, updatePosProduct, deletePosProduct, checkoutPos, getPosHistory } from '../utils/api';
+import { getPosProducts, addPosProduct, updatePosProduct, deletePosProduct, checkoutPos, getPosHistory, deletePosTransaction } from '../utils/api';
 
 export default function PosKasirView() {
   const [products, setProducts] = useState([]);
@@ -60,7 +60,25 @@ export default function PosKasirView() {
     }
   };
 
-  const categories = ['Semua', 'Minuman', 'Makanan', 'Merchandise', 'Suplemen'];
+  const categories = ['Semua', 'Tiket Visit', 'Minuman', 'Makanan', 'Merchandise', 'Suplemen'];
+
+  const handleDeleteTransaction = async (id, nomorStruk) => {
+    if (!window.confirm(`Yakin ingin membatalkan & menghapus transaksi struk ${nomorStruk}?\n\nSemua stok produk pada struk ini akan otomatis dikembalikan ke inventaris, dan total penjualan di rekap keuangan kasir akan dihapus.`)) {
+      return;
+    }
+    try {
+      const res = await deletePosTransaction(id);
+      if (res.success) {
+        alert(res.message);
+        loadHistory();
+        loadProducts();
+      } else {
+        alert(res.message || 'Gagal menghapus transaksi');
+      }
+    } catch (err) {
+      alert(err.message || 'Gagal menghapus transaksi');
+    }
+  };
 
   const filteredProducts = products.filter(p => {
     const matchCat = selectedCategory === 'Semua' || p.kategori === selectedCategory;
@@ -284,6 +302,46 @@ export default function PosKasirView() {
                   {cat}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Quick Access: Tiket Visit Harian (Gym & Renang) */}
+          <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-4 rounded-2xl border border-slate-700 shadow-md flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-black uppercase tracking-wider text-[#dfc185]">⚡ Akses Cepat Tiket Visit Harian</span>
+                <span className="text-[10px] bg-[#c5a059]/20 text-[#dfc185] px-2 py-0.5 rounded-full border border-[#c5a059]/30 font-bold">Non-Member / Tamu</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">Pengunjung yang datang hanya untuk 1x sesi latihan gym atau renang</p>
+            </div>
+            <div className="flex items-center space-x-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  const poolProd = products.find(p => p.nama_produk.toLowerCase().includes('renang') || p.nama_produk.toLowerCase().includes('pool')) || {
+                    id_produk: 99991, nama_produk: 'Visit Renang 1x (Harian)', harga_jual: 20000, stok: 9999, kategori: 'Tiket Visit', satuan: 'Tiket'
+                  };
+                  addToCart(poolProd);
+                }}
+                className="flex-1 sm:flex-initial px-3.5 py-2 bg-cyan-600/30 hover:bg-cyan-600 text-cyan-200 hover:text-white border border-cyan-500/40 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-sm active:scale-95"
+              >
+                <span>🏊 Visit Renang</span>
+                <span className="font-mono font-black text-white bg-cyan-900/60 px-1.5 py-0.5 rounded text-[10px]">Rp 20.000</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const gymProd = products.find(p => p.nama_produk.toLowerCase().includes('visit gym')) || {
+                    id_produk: 99992, nama_produk: 'Visit Gym 1x (Harian)', harga_jual: 30000, stok: 9999, kategori: 'Tiket Visit', satuan: 'Tiket'
+                  };
+                  addToCart(gymProd);
+                }}
+                className="flex-1 sm:flex-initial px-3.5 py-2 bg-amber-600/30 hover:bg-amber-600 text-amber-200 hover:text-white border border-amber-500/40 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-sm active:scale-95"
+              >
+                <span>🏋️ Visit Gym</span>
+                <span className="font-mono font-black text-white bg-amber-900/60 px-1.5 py-0.5 rounded text-[10px]">Rp 30.000</span>
+              </button>
             </div>
           </div>
 
@@ -649,6 +707,7 @@ export default function PosKasirView() {
                     onChange={(e) => setFormData({ ...formData, kategori: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white"
                   >
+                    <option value="Tiket Visit">Tiket Visit (Harian)</option>
                     <option value="Minuman">Minuman</option>
                     <option value="Makanan">Makanan</option>
                     <option value="Merchandise">Merchandise</option>
@@ -797,11 +856,20 @@ export default function PosKasirView() {
                         Kasir: <strong>{h.kasir_nama}</strong>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex flex-col items-end">
                       <div className="font-mono font-black text-base text-slate-950">
                         Rp {h.total_bayar.toLocaleString('id-ID')}
                       </div>
                       <div className="text-[10px] text-slate-400 font-mono mt-0.5">{h.created_at}</div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTransaction(h.id_transaksi_pos, h.nomor_struk)}
+                        className="mt-2 inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition active:scale-95 shadow-sm"
+                        title="Batalkan & Hapus Transaksi (Kembalikan Stok Barang)"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Batalkan Struk</span>
+                      </button>
                     </div>
                   </div>
 

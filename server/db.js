@@ -538,6 +538,26 @@ function seedDatabase() {
       VALUES ('Operasional', 'Restock Le Minerale 2 Dus & Roti', 180000, 'Staff Kasir')
     `).run();
   }
+
+  // 6. Ensure Daily Visit Tickets (Gym & Pool) exist in POS Products
+  try {
+    const hasGymVisit = db.prepare("SELECT id_produk FROM pos_products WHERE nama_produk LIKE '%Visit Gym%'").get();
+    if (!hasGymVisit) {
+      db.prepare(`
+        INSERT INTO pos_products (nama_produk, kategori, harga_jual, harga_modal, stok, barcode, satuan)
+        VALUES ('Visit Gym 1x (Harian)', 'Tiket Visit', 30000, 0, 9999, 'TIKET-GYM', 'Tiket')
+      `).run();
+    }
+    const hasPoolVisit = db.prepare("SELECT id_produk FROM pos_products WHERE nama_produk LIKE '%Visit Renang%' OR nama_produk LIKE '%Visit Kolam%'").get();
+    if (!hasPoolVisit) {
+      db.prepare(`
+        INSERT INTO pos_products (nama_produk, kategori, harga_jual, harga_modal, stok, barcode, satuan)
+        VALUES ('Visit Renang 1x (Harian)', 'Tiket Visit', 20000, 0, 9999, 'TIKET-POOL', 'Tiket')
+      `).run();
+    }
+  } catch (e) {
+    console.error('Error ensuring visit products:', e.message);
+  }
 }
 
 seedDatabase();

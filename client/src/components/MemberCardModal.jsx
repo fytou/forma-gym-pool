@@ -371,31 +371,53 @@ export default function MemberCardModal({ member, qrImage, onClose }) {
       if (img.complete && img.naturalWidth > 0) finish(img);
     });
 
-    // 2. Preload foto member dengan CORS
+    // 2. Preload foto member dengan fetch Blob (100% Anti-Taint & Aman dari CORS Browser)
     let photoEl = null;
     if (member.foto) {
-      photoEl = await new Promise((resolve) => {
-        const img = new window.Image();
-        img.crossOrigin = 'anonymous';
-        let done = false;
-        const finish = (result) => {
-          if (!done) {
-            done = true;
-            resolve(result);
-          }
-        };
-        img.onload = () => finish(img);
-        img.onerror = () => finish(null);
-        setTimeout(() => finish(null), 1500);
-
-        let src = member.foto;
-        if (src.startsWith('http') || src.startsWith('/')) {
-          const sep = src.includes('?') ? '&' : '?';
-          src = `${src}${sep}cb=${Date.now()}`;
+      try {
+        const src = member.foto;
+        const resp = await fetch(src);
+        if (resp.ok) {
+          const imgBlob = await resp.blob();
+          const localUrl = URL.createObjectURL(imgBlob);
+          photoEl = await new Promise((resolve) => {
+            const img = new window.Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => resolve(null);
+            setTimeout(() => resolve(null), 5000);
+            img.src = localUrl;
+            if (img.complete && img.naturalWidth > 0) resolve(img);
+          });
         }
-        img.src = src;
-        if (img.complete && img.naturalWidth > 0) finish(img);
-      });
+      } catch (err) {
+        console.warn('Fetch photo as blob failed, trying direct image load:', err);
+      }
+
+      // Fallback direct load
+      if (!photoEl) {
+        photoEl = await new Promise((resolve) => {
+          const img = new window.Image();
+          img.crossOrigin = 'anonymous';
+          let done = false;
+          const finish = (result) => {
+            if (!done) {
+              done = true;
+              resolve(result);
+            }
+          };
+          img.onload = () => finish(img);
+          img.onerror = () => finish(null);
+          setTimeout(() => finish(null), 5000);
+
+          let src = member.foto;
+          if (src.startsWith('http') || src.startsWith('/')) {
+            const sep = src.includes('?') ? '&' : '?';
+            src = `${src}${sep}cb=${Date.now()}`;
+          }
+          img.src = src;
+          if (img.complete && img.naturalWidth > 0) finish(img);
+        });
+      }
     }
 
     // 3. Render ke Blob (Double-buffered: canvas1 dengan foto, canvas2 dengan avatar vector)

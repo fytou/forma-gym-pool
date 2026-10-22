@@ -1,3 +1,15 @@
+// Force Indonesia Western Time (WIB / Asia/Jakarta, UTC+7)
+process.env.TZ = 'Asia/Jakarta';
+
+// Helpers to get exact WIB date and time regardless of host/container OS timezone
+function getWibDate() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
+
+function getWibTime() {
+  return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+}
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -66,13 +78,13 @@ function getMemberWithDetails(memberId) {
   // Compute remaining days
   let sisaHari = 0;
   if (membership && membership.tanggal_berakhir) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getWibDate();
     const diff = new Date(membership.tanggal_berakhir) - new Date(today);
     sisaHari = Math.ceil(diff / (1000 * 60 * 60 * 24));
   }
 
   // Check if member is currently inside any facility
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getWibDate();
   const activeLog = db.prepare(`
     SELECT * FROM checkin_logs 
     WHERE member_id = ? AND tanggal = ? AND jam_keluar IS NULL AND hasil_validasi = 'ACCESS GRANTED'
@@ -247,7 +259,7 @@ app.delete('/api/users/:id', authenticateToken, requireRole(['superadmin']), (re
 // ==========================================
 app.get('/api/dashboard', (req, res) => {
   try {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getWibDate();
 
     // 1. Total Member
     const totalMember = db.prepare('SELECT COUNT(*) as count FROM members').get().count;
@@ -466,7 +478,7 @@ app.post('/api/members', upload.single('foto_file'), async (req, res) => {
     }
 
     // Calculate dates
-    const startDate = tanggal_mulai || new Date().toISOString().split('T')[0];
+    const startDate = tanggal_mulai || getWibDate();
     const endDateObj = new Date(startDate);
     endDateObj.setDate(endDateObj.getDate() + Number(pkg.durasi));
     const endDate = endDateObj.toISOString().split('T')[0];
@@ -571,7 +583,7 @@ app.post('/api/members/:id/renew', (req, res) => {
     // If user specified custom start date, use it.
     // If not, if current membership is still active, start date = day after old end date.
     // If already expired, start date = today.
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getWibDate();
     let startDate = tanggal_mulai;
     if (!startDate) {
       if (member.membership && member.membership.tanggal_berakhir >= todayStr) {
@@ -731,8 +743,8 @@ app.post('/api/checkin/scan', (req, res) => {
       normalizedVariants.push(`FM-2026-${padNum}`);
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    const nowTimeStr = new Date().toTimeString().split(' ')[0].substring(0, 5); // HH:mm
+    const todayStr = getWibDate();
+    const nowTimeStr = getWibTime();
 
     // Find member by qr_code OR id_member (case-insensitive) OR phone across all normalized variants
     let memberRow = null;
@@ -934,7 +946,7 @@ app.post('/api/checkin/checkout/:logId', (req, res) => {
       return res.status(404).json({ success: false, message: 'Data check-in tidak ditemukan' });
     }
 
-    const nowTimeStr = new Date().toTimeString().split(' ')[0].substring(0, 5);
+    const nowTimeStr = getWibTime();
     const [inH, inM] = log.jam_masuk.split(':').map(Number);
     const [outH, outM] = nowTimeStr.split(':').map(Number);
     let diffMinutes = (outH * 60 + outM) - (inH * 60 + inM);
@@ -1647,8 +1659,8 @@ app.post('/api/trainers/checkin-session', authenticateToken, (req, res) => {
       return res.status(400).json({ success: false, message: 'Sesi latihan sudah habis!' });
     }
 
-    const nowTimeStr = new Date().toTimeString().split(' ')[0].substring(0, 5);
-    const todayStr = new Date().toISOString().split('T')[0];
+    const nowTimeStr = getWibTime();
+    const todayStr = getWibDate();
 
     // Log session
     db.prepare(`
@@ -1785,7 +1797,7 @@ app.post('/api/lockers/borrow', authenticateToken, (req, res) => {
     if (!locker) return res.status(404).json({ success: false, message: 'Loker tidak ditemukan' });
     if (locker.status !== 'Tersedia') return res.status(400).json({ success: false, message: 'Loker sedang tidak tersedia' });
 
-    const nowTimeStr = new Date().toTimeString().split(' ')[0].substring(0, 5);
+    const nowTimeStr = getWibTime();
 
     db.prepare(`
       UPDATE lockers

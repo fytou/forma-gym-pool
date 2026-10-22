@@ -1,3 +1,4 @@
+process.env.TZ = 'Asia/Jakarta';
 const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');

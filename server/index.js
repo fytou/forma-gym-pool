@@ -1293,7 +1293,12 @@ app.post('/api/pos/checkout', authenticateToken, (req, res) => {
       return res.status(400).json({ success: false, message: 'Keranjang belanja masih kosong' });
     }
 
-    const nomorStruk = `STRUK-${Date.now().toString().slice(-8)}`;
+    let nomorStruk = `STRUK-${Date.now().toString().slice(-8)}`;
+    // Prevent any collision
+    const existingStruk = db.prepare('SELECT id_transaksi_pos FROM pos_transactions WHERE nomor_struk = ?').get(nomorStruk);
+    if (existingStruk) {
+      nomorStruk = `STRUK-${Date.now().toString().slice(-7)}${Math.floor(Math.random() * 10)}`;
+    }
     let totalBayar = 0;
 
     // Validate stock and calculate total
@@ -1353,7 +1358,7 @@ app.post('/api/pos/checkout', authenticateToken, (req, res) => {
 // Get POS Sales History with filters, pagination, and items detail
 app.get('/api/pos/history', authenticateToken, (req, res) => {
   try {
-    const { search = '', bulan = '', tahun = '', limit = 10, page = 1 } = req.query;
+    const { search = '', bulan = '', tahun = '', limit = 100, page = 1 } = req.query;
 
     let query = `
       SELECT pt.*, pt.created_at as tanggal_waktu
@@ -1402,7 +1407,7 @@ app.get('/api/pos/history', authenticateToken, (req, res) => {
     const stat = db.prepare(sumQuery).get(...sumParams);
 
     query += ' ORDER BY pt.id_transaksi_pos DESC LIMIT ? OFFSET ?';
-    const numLimit = Number(limit) || 10;
+    const numLimit = Math.min(Math.max(Number(limit) || 100, 1), 1000);
     const numOffset = ((Number(page) || 1) - 1) * numLimit;
     params.push(numLimit, numOffset);
 

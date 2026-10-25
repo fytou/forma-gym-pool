@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ShoppingCart, Plus, Minus, Trash2, Search, CheckCircle, 
   CreditCard, Banknote, QrCode, AlertCircle, PackageCheck, History, X,
-  Pencil
+  Pencil, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { getPosProducts, addPosProduct, updatePosProduct, deletePosProduct, checkoutPos, getPosHistory, deletePosTransaction } from '../utils/api';
 
@@ -15,6 +15,11 @@ export default function PosKasirView() {
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyLimit, setHistoryLimit] = useState(50);
+  const [historyTotalCount, setHistoryTotalCount] = useState(0);
+  const [historyTotalNominal, setHistoryTotalNominal] = useState(0);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   
   // Checkout Modal State
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
@@ -51,12 +56,20 @@ export default function PosKasirView() {
     }
   };
 
-  const loadHistory = async () => {
+  const loadHistory = async (page = 1, limit = historyLimit, search = historySearch) => {
     try {
-      const res = await getPosHistory();
-      if (res.success) setHistory(res.data);
+      setLoadingHistory(true);
+      const res = await getPosHistory({ page, limit, search });
+      if (res.success) {
+        setHistory(res.data || []);
+        setHistoryTotalCount(res.total_count || 0);
+        setHistoryTotalNominal(res.total_nominal || 0);
+        setHistoryPage(res.page || page);
+      }
     } catch (e) {
       console.error(e);
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
@@ -70,7 +83,7 @@ export default function PosKasirView() {
       const res = await deletePosTransaction(id);
       if (res.success) {
         alert(res.message);
-        loadHistory();
+        loadHistory(historyPage, historyLimit, historySearch);
         loadProducts();
       } else {
         alert(res.message || 'Gagal menghapus transaksi');
@@ -166,6 +179,7 @@ export default function PosKasirView() {
         });
         clearCart();
         loadProducts();
+        loadHistory(1, historyLimit, '');
       } else {
         alert(res.message || 'Gagal memproses transaksi');
       }
@@ -248,7 +262,7 @@ export default function PosKasirView() {
         <div className="flex items-center space-x-3">
           <button
             onClick={() => {
-              loadHistory();
+              loadHistory(1, historyLimit, '');
               setShowHistory(true);
             }}
             className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition"
@@ -821,25 +835,52 @@ export default function PosKasirView() {
             </div>
 
             {/* Filter History */}
-            <div className="mb-3 flex items-center gap-2">
-              <div className="relative flex-1">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 min-w-[200px]">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Cari No. Struk, Nama Pembeli, atau Kasir..."
                   value={historySearch}
                   onChange={(e) => setHistorySearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      loadHistory(1, historyLimit, historySearch);
+                    }
+                  }}
                   className="w-full pl-9 pr-3 py-2 text-xs font-medium rounded-xl border border-slate-200 focus:outline-none focus:border-[#c5a059]"
                 />
               </div>
-              <div className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-2 rounded-xl whitespace-nowrap">
-                Total: {filteredHistory.length} Struk
+
+              {/* Items per page selector */}
+              <div className="flex items-center space-x-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl">
+                <span>Tampilkan:</span>
+                <select
+                  value={historyLimit}
+                  onChange={(e) => {
+                    const l = Number(e.target.value);
+                    setHistoryLimit(l);
+                    loadHistory(1, l, historySearch);
+                  }}
+                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
+                >
+                  <option value={20}>20 Struk</option>
+                  <option value={50}>50 Struk</option>
+                  <option value={100}>100 Struk</option>
+                  <option value={500}>500 Struk</option>
+                </select>
+              </div>
+
+              <div className="text-xs font-bold text-slate-700 bg-amber-50 border border-amber-200/80 px-3 py-2 rounded-xl whitespace-nowrap">
+                Total Arsip: <span className="font-mono text-[#b38a3e] font-black">{historyTotalCount || filteredHistory.length}</span> Struk
               </div>
             </div>
 
             {/* List History */}
             <div className="overflow-y-auto flex-1 space-y-3 text-xs pr-1">
-              {filteredHistory.map((h) => (
+              {loadingHistory ? (
+                <div className="p-8 text-center text-slate-400">Memuat riwayat struk...</div>
+              ) : filteredHistory.map((h) => (
                 <div key={h.id_transaksi_pos} className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 hover:border-[#c5a059] transition">
                   <div className="flex items-start justify-between border-b border-slate-200/60 pb-2 mb-2">
                     <div>
@@ -892,12 +933,41 @@ export default function PosKasirView() {
                 </div>
               ))}
 
-              {filteredHistory.length === 0 && (
+              {!loadingHistory && filteredHistory.length === 0 && (
                 <div className="p-8 text-center text-slate-400">
                   Belum ada struk penjualan POS kasir.
                 </div>
               )}
             </div>
+
+            {/* Pagination Controls */}
+            {historyTotalCount > historyLimit && (
+              <div className="border-t border-slate-100 pt-3 mt-3 flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-medium">
+                  Halaman <strong>{historyPage}</strong> dari <strong>{Math.ceil(historyTotalCount / historyLimit)}</strong> ({historyTotalCount} total struk tercatat)
+                </span>
+                <div className="flex items-center space-x-1">
+                  <button
+                    type="button"
+                    disabled={historyPage <= 1}
+                    onClick={() => loadHistory(historyPage - 1, historyLimit, historySearch)}
+                    className="flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Sebelumnya</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={historyPage >= Math.ceil(historyTotalCount / historyLimit)}
+                    onClick={() => loadHistory(historyPage + 1, historyLimit, historySearch)}
+                    className="flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    <span>Berikutnya</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

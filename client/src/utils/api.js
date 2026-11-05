@@ -501,9 +501,27 @@ export async function maintenanceLocker(data) {
 // ==========================================
 // KEUANGAN / FINANCE API
 // ==========================================
-export async function getFinanceSummary() {
+export async function getFinanceSummary(params = {}) {
   const token = getAuthToken();
-  const res = await fetch(`${API_BASE}/finance/summary`, {
+  const query = new URLSearchParams();
+  if (params.tanggal) query.append('tanggal', params.tanggal);
+  if (params.bulan) query.append('bulan', params.bulan);
+  if (params.tahun) query.append('tahun', params.tahun);
+
+  const res = await fetch(`${API_BASE}/finance/summary?${query.toString()}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  return res.json();
+}
+
+export async function getDailyFinanceRecap(params = {}) {
+  const token = getAuthToken();
+  const query = new URLSearchParams();
+  if (params.tanggal) query.append('tanggal', params.tanggal);
+  if (params.bulan) query.append('bulan', params.bulan);
+  if (params.tahun) query.append('tahun', params.tahun);
+
+  const res = await fetch(`${API_BASE}/finance/daily-recap?${query.toString()}`, {
     headers: { 'Authorization': `Bearer ${token}` }
   });
   return res.json();
@@ -549,6 +567,7 @@ export async function getExpenses(params = {}) {
   const query = new URLSearchParams();
   if (params.kategori) query.append('kategori', params.kategori);
   if (params.search) query.append('search', params.search);
+  if (params.tanggal) query.append('tanggal', params.tanggal);
   if (params.bulan) query.append('bulan', params.bulan);
   if (params.tahun) query.append('tahun', params.tahun);
   if (params.page) query.append('page', params.page);
@@ -564,6 +583,7 @@ export async function getUnifiedTransactions(params = {}) {
   const query = new URLSearchParams();
   if (params.kategori) query.append('kategori', params.kategori);
   if (params.search) query.append('search', params.search);
+  if (params.tanggal) query.append('tanggal', params.tanggal);
   if (params.bulan) query.append('bulan', params.bulan);
   if (params.tahun) query.append('tahun', params.tahun);
   if (params.page) query.append('page', params.page);

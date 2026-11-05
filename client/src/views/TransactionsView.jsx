@@ -2,18 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { 
   Receipt, Wallet, RefreshCw, Calendar, Search, Filter, 
   ChevronLeft, ChevronRight, User, ArrowDownRight, CreditCard,
-  TrendingUp, Download, Eye, CheckCircle2, DollarSign, Plus, ArrowUpRight, ShoppingBag, Dumbbell, X, Layers,
-  Pencil, Trash2
+  TrendingUp, Download, Eye, CheckCircle2, DollarSign, Plus, ArrowUpRight, 
+  ShoppingBag, Dumbbell, X, Layers, Pencil, Trash2, CalendarDays, Ticket,
+  Coffee, Printer, BarChart3, Clock, ArrowRight
 } from 'lucide-react';
 import { 
-  getTransactions, formatRupiah, formatDateIndo, getFinanceSummary, 
-  addExpense, updateExpense, deleteExpense, getPosHistory, deletePosTransaction, getTrainerMembers, getUnifiedTransactions, getExpenses 
+  getTransactions, formatRupiah, formatDateIndo, getFinanceSummary, getDailyFinanceRecap,
+  addExpense, updateExpense, deleteExpense, deletePosTransaction, getUnifiedTransactions, getExpenses 
 } from '../utils/api';
 
 export default function TransactionsView() {
-  // activeFinanceTab: 'all', 'memberships', 'pos', 'pt', 'expenses'
+  // viewMode: 'recap_harian' (Tabel Pendapatan Per Hari) or 'transaksi_rinci' (Daftar Transaksi Satuan)
+  const [viewMode, setViewMode] = useState('recap_harian');
+
+  // activeFinanceTab: 'all', 'memberships', 'visit', 'pos_belanja', 'pt', 'expenses'
   const [activeFinanceTab, setActiveFinanceTab] = useState('all');
   const [financeSummary, setFinanceSummary] = useState(null);
+  
+  // Daily Recap state
+  const [dailyRecapList, setDailyRecapList] = useState([]);
+  const [dailyRecapSummary, setDailyRecapSummary] = useState(null);
+  const [loadingDaily, setLoadingDaily] = useState(false);
+
+  // Expense Modals State
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseForm, setExpenseForm] = useState({
     kategori: 'Operasional',
@@ -22,7 +33,6 @@ export default function TransactionsView() {
     metode_bayar: 'Tunai'
   });
 
-  // Edit Expense State
   const [editingExpense, setEditingExpense] = useState(null);
   const [showEditExpenseModal, setShowEditExpenseModal] = useState(false);
   const [editExpenseForm, setEditExpenseForm] = useState({
@@ -34,7 +44,7 @@ export default function TransactionsView() {
 
   const [loading, setLoading] = useState(true);
   
-  // Unified transactions state (for 'all', 'memberships', 'pos', 'pt')
+  // Unified transactions state
   const [dataList, setDataList] = useState([]);
   const [totalNominal, setTotalNominal] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
@@ -47,11 +57,21 @@ export default function TransactionsView() {
   const currentMonth = new Date().getMonth() + 1;
   const [selectedYear, setSelectedYear] = useState(String(currentYear));
   const [selectedMonth, setSelectedMonth] = useState(String(currentMonth));
-  const [filterPeriod, setFilterPeriod] = useState('bulan_ini'); // 'bulan_ini', 'semua', 'custom'
 
-  // Pagination state (10 items per page)
+  // filterPeriod: 'hari_ini', 'kemarin', 'tanggal_spesifik', 'bulan_ini', 'custom_bulan', 'semua'
+  const [filterPeriod, setFilterPeriod] = useState('bulan_ini');
+  
+  const getJakartaDate = (offsetDays = 0) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(d);
+  };
+
+  const [filterTanggal, setFilterTanggal] = useState(() => getJakartaDate(0));
+
+  // Pagination state
   const [page, setPage] = useState(1);
-  const limit = 10;
+  const [limit, setLimit] = useState(15);
 
   // Selected item detail modal
   const [selectedItem, setSelectedItem] = useState(null);
@@ -61,8 +81,120 @@ export default function TransactionsView() {
       const res = await getFinanceSummary();
       if (res.success) setFinanceSummary(res.data);
     } catch (e) {
-      console.error(e);
+      console.error('Fetch finance summary error:', e);
     }
+  };
+
+  const fetchDailyRecap = async () => {
+    setLoadingDaily(true);
+    try {
+      const params = {};
+      if (filterPeriod === 'hari_ini' || filterPeriod === 'kemarin' || (filterPeriod === 'tanggal_spesifik' && filterTanggal)) {
+        params.tanggal = filterTanggal;
+      } else if (filterPeriod === 'bulan_ini') {
+        params.bulan = currentMonth;
+        params.tahun = currentYear;
+      } else if (filterPeriod === 'custom_bulan') {
+        if (selectedMonth) params.bulan = selectedMonth;
+        if (selectedYear) params.tahun = selectedYear;
+      }
+
+      const res = await getDailyFinanceRecap(params);
+      if (res.success) {
+        setDailyRecapList(res.data || []);
+        setDailyRecapSummary(res.summary || null);
+      }
+    } catch (e) {
+      console.error('Fetch daily recap error:', e);
+    } finally {
+      setLoadingDaily(false);
+    }
+  };
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const params = {
+        page,
+        limit
+      };
+
+      if (search.trim()) {
+        params.search = search.trim();
+      }
+
+      if (filterPeriod === 'hari_ini' || filterPeriod === 'kemarin' || (filterPeriod === 'tanggal_spesifik' && filterTanggal)) {
+        params.tanggal = filterTanggal;
+      } else if (filterPeriod === 'bulan_ini') {
+        params.bulan = currentMonth;
+        params.tahun = currentYear;
+      } else if (filterPeriod === 'custom_bulan') {
+        if (selectedMonth) params.bulan = selectedMonth;
+        if (selectedYear) params.tahun = selectedYear;
+      }
+
+      if (activeFinanceTab === 'expenses') {
+        const res = await getExpenses(params);
+        if (res.success) {
+          setDataList(res.data || []);
+          setTotalNominal(res.total_nominal || 0);
+          setTotalCount(res.total_count || 0);
+        }
+      } else {
+        if (activeFinanceTab === 'memberships') {
+          params.kategori = 'Member Gym';
+        } else if (activeFinanceTab === 'visit') {
+          params.kategori = 'Tiket Visit';
+        } else if (activeFinanceTab === 'pos_belanja') {
+          params.kategori = 'Belanja Kasir';
+        } else if (activeFinanceTab === 'pt') {
+          params.kategori = 'Trainer (PT)';
+        } else {
+          params.kategori = 'Semua';
+        }
+
+        const res = await getUnifiedTransactions(params);
+        if (res.success) {
+          setDataList(res.data || []);
+          setTotalNominal(res.total_nominal || 0);
+          setTotalCount(res.total_count || 0);
+        }
+      }
+    } catch (err) {
+      console.error('Fetch transaction list error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDailyRecap();
+  }, [filterPeriod, filterTanggal, selectedMonth, selectedYear]);
+
+  useEffect(() => {
+    fetchData();
+    fetchFinanceSummary();
+  }, [activeFinanceTab, page, limit, filterPeriod, filterTanggal, selectedMonth, selectedYear]);
+
+  const handlePeriodChange = (mode) => {
+    setFilterPeriod(mode);
+    setPage(1);
+
+    if (mode === 'hari_ini') {
+      setFilterTanggal(getJakartaDate(0));
+    } else if (mode === 'kemarin') {
+      setFilterTanggal(getJakartaDate(-1));
+    } else if (mode === 'bulan_ini') {
+      setSelectedMonth(String(currentMonth));
+      setSelectedYear(String(currentYear));
+    }
+  };
+
+  const handleDrilldownDay = (tgl) => {
+    setFilterTanggal(tgl);
+    setFilterPeriod('tanggal_spesifik');
+    setViewMode('transaksi_rinci');
+    setPage(1);
   };
 
   const handleAddExpense = async (e) => {
@@ -73,6 +205,7 @@ export default function TransactionsView() {
         setShowExpenseModal(false);
         setExpenseForm({ kategori: 'Operasional', deskripsi: '', nominal: '', metode_bayar: 'Tunai' });
         fetchFinanceSummary();
+        fetchDailyRecap();
         fetchData();
       } else {
         alert(res.message);
@@ -102,6 +235,7 @@ export default function TransactionsView() {
         setShowEditExpenseModal(false);
         setEditingExpense(null);
         fetchFinanceSummary();
+        fetchDailyRecap();
         fetchData();
       } else {
         alert(res.message || 'Gagal mengubah pengeluaran');
@@ -112,13 +246,14 @@ export default function TransactionsView() {
   };
 
   const handleDeleteExpense = async (id, deskripsi) => {
-    if (!window.confirm(`Yakin ingin menghapus catatan pengeluaran "${deskripsi}"?\n\nTotal pengeluaran dan laba bersih di rekap keuangan akan langsung diperbarui.`)) {
+    if (!window.confirm(`Yakin ingin menghapus catatan pengeluaran "${deskripsi}"?\n\nTotal pengeluaran dan kas bersih akan langsung diperbarui.`)) {
       return;
     }
     try {
       const res = await deleteExpense(id);
       if (res.success) {
         fetchFinanceSummary();
+        fetchDailyRecap();
         fetchData();
       } else {
         alert(res.message || 'Gagal menghapus pengeluaran');
@@ -138,6 +273,7 @@ export default function TransactionsView() {
         alert(res.message);
         setSelectedItem(null);
         fetchFinanceSummary();
+        fetchDailyRecap();
         fetchData();
       } else {
         alert(res.message || 'Gagal membatalkan transaksi POS');
@@ -147,64 +283,6 @@ export default function TransactionsView() {
     }
   };
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const params = {
-        page,
-        limit
-      };
-
-      if (search.trim()) {
-        params.search = search.trim();
-      }
-
-      if (filterPeriod === 'bulan_ini') {
-        params.bulan = currentMonth;
-        params.tahun = currentYear;
-      } else if (filterPeriod === 'custom') {
-        if (selectedMonth) params.bulan = selectedMonth;
-        if (selectedYear) params.tahun = selectedYear;
-      }
-
-      if (activeFinanceTab === 'expenses') {
-        const res = await getExpenses(params);
-        if (res.success) {
-          setDataList(res.data || []);
-          setTotalNominal(res.total_nominal || 0);
-          setTotalCount(res.total_count || 0);
-        }
-      } else {
-        if (activeFinanceTab === 'memberships') {
-          params.kategori = 'Member Gym';
-        } else if (activeFinanceTab === 'pos') {
-          params.kategori = 'POS Kasir';
-        } else if (activeFinanceTab === 'pt') {
-          params.kategori = 'Trainer (PT)';
-        } else {
-          params.kategori = 'Semua';
-        }
-
-        const res = await getUnifiedTransactions(params);
-        if (res.success) {
-          setDataList(res.data || []);
-          setTotalNominal(res.total_nominal || 0);
-          setTotalCount(res.total_count || 0);
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-    fetchFinanceSummary();
-  }, [activeFinanceTab, page, filterPeriod, selectedMonth, selectedYear]);
-
-  // Handle Search submit
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setPage(1);
@@ -213,7 +291,6 @@ export default function TransactionsView() {
 
   const totalPages = Math.ceil(totalCount / limit) || 1;
 
-  // Indonesian Months
   const months = [
     { value: '1', label: 'Januari' },
     { value: '2', label: 'Februari' },
@@ -231,340 +308,654 @@ export default function TransactionsView() {
 
   const years = [currentYear, currentYear - 1, currentYear - 2];
 
+  const formatTanggalLengkap = (tglStr) => {
+    if (!tglStr) return '-';
+    try {
+      const [y, m, d] = tglStr.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
+      return new Intl.DateTimeFormat('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      }).format(date);
+    } catch {
+      return tglStr;
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl text-white">
         <div>
           <div className="flex items-center space-x-2 text-[#c5a059] mb-0.5">
-            <Receipt className="w-4 h-4" />
-            <span className="text-[11px] font-bold tracking-widest uppercase">Keuangan & Rekap Pembayaran</span>
+            <Receipt className="w-5 h-5" />
+            <span className="text-[11px] font-bold tracking-widest uppercase">Keuangan & Rekap Arus Kas</span>
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            Laporan Keuangan & Arus Kas Gym
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+            Laporan Keuangan & Omzet Harian Gym
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Rekapitulasi pemasukan member, POS kasir, trainer (PT), dan pengeluaran operasional
+          <p className="text-xs text-slate-400 mt-0.5">
+            Rekapitulasi pendapatan harian: Tiket Visit, Belanja POS, Member Gym, Trainer PT, dan Pengeluaran
           </p>
         </div>
 
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setShowExpenseModal(true)}
-            className="flex items-center space-x-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+            className="flex items-center space-x-1.5 px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-sm active:scale-95"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-4 h-4" />
             <span>Catat Pengeluaran</span>
           </button>
+
+          <button
+            onClick={() => window.print()}
+            className="flex items-center space-x-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-bold transition shadow-sm"
+            title="Cetak Laporan Keuangan"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Cetak Laporan</span>
+          </button>
+
           <button
             onClick={() => {
-              setPage(1);
               fetchData();
+              fetchDailyRecap();
               fetchFinanceSummary();
             }}
-            className="flex items-center space-x-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition shadow-sm"
+            className="flex items-center space-x-1.5 px-3 py-2 bg-[#c5a059] hover:bg-[#b89047] text-slate-950 rounded-xl text-xs font-black shadow-md shadow-[#c5a059]/20 transition"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#c5a059] ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading || loadingDaily ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
         </div>
       </div>
 
-      {/* Financial Overview Cards (Consolidated from All Modules!) */}
-      {financeSummary && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-            <span className="text-[11px] font-bold text-slate-500 uppercase">Omzet Member Gym</span>
-            <div className="text-lg font-black text-slate-900 font-mono mt-1">
-              {formatRupiah(financeSummary.total_member_income)}
+      {/* Banner / Card Ringkasan Hari Ini (WIB Realtime) */}
+      {financeSummary?.today && (
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl p-4 sm:p-5 border border-slate-800 shadow-lg">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center space-x-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-[#c5a059]/20 text-[#dfc185] border border-[#c5a059]/40 flex items-center justify-center shrink-0">
+                <CalendarDays className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-[#c5a059] text-slate-950">
+                    Hari Ini (WIB)
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">
+                    {formatTanggalLengkap(financeSummary.today.tanggal)}
+                  </span>
+                </div>
+                <div className="flex items-baseline space-x-2 mt-1">
+                  <span className="text-xs text-slate-400">Total Omzet Masuk:</span>
+                  <span className="text-xl sm:text-2xl font-black font-mono text-[#dfc185]">
+                    {formatRupiah(financeSummary.today.gross_income)}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="text-[10px] text-slate-400 mt-0.5">Pendaftaran & Perpanjangan</div>
-          </div>
 
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-            <span className="text-[11px] font-bold text-slate-500 uppercase">Penjualan POS Kasir</span>
-            <div className="text-lg font-black text-slate-900 font-mono mt-1">
-              {formatRupiah(financeSummary.total_pos_income)}
+            {/* Breakdown Mini Badges */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60">
+                <span className="text-[10px] text-slate-400 block font-medium">Member Gym</span>
+                <span className="font-mono font-bold text-white text-xs block mt-0.5">
+                  {formatRupiah(financeSummary.today.member_income)}
+                </span>
+              </div>
+              <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60">
+                <span className="text-[10px] text-sky-400 block font-medium">Tiket Visit</span>
+                <span className="font-mono font-bold text-sky-300 text-xs block mt-0.5">
+                  {formatRupiah(financeSummary.today.visit_income)}
+                </span>
+              </div>
+              <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60">
+                <span className="text-[10px] text-amber-400 block font-medium">Belanja / Kafe</span>
+                <span className="font-mono font-bold text-amber-300 text-xs block mt-0.5">
+                  {formatRupiah(financeSummary.today.belanja_income)}
+                </span>
+              </div>
+              <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60">
+                <span className="text-[10px] text-emerald-400 block font-medium">Kas Bersih Hari Ini</span>
+                <span className="font-mono font-bold text-emerald-400 text-xs block mt-0.5">
+                  {formatRupiah(financeSummary.today.net_profit)}
+                </span>
+              </div>
             </div>
-            <div className="text-[10px] text-slate-400 mt-0.5">Minuman, F&B, Merchandise</div>
-          </div>
 
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-            <span className="text-[11px] font-bold text-slate-500 uppercase">Paket Trainer (PT)</span>
-            <div className="text-lg font-black text-slate-900 font-mono mt-1">
-              {formatRupiah(financeSummary.total_pt_income)}
+            <div>
+              <button
+                onClick={() => handlePeriodChange('hari_ini')}
+                className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold transition flex items-center justify-center space-x-1.5"
+              >
+                <span>Lihat Transaksi Hari Ini</span>
+                <ArrowRight className="w-3.5 h-3.5 text-[#c5a059]" />
+              </button>
             </div>
-            <div className="text-[10px] text-slate-400 mt-0.5">Personal Coaching Member</div>
-          </div>
-
-          <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-sm text-white">
-            <span className="text-[11px] font-bold text-[#dfc185] uppercase">Total Keuntungan Bersih</span>
-            <div className="text-xl font-black text-[#dfc185] font-mono mt-1">
-              {formatRupiah(financeSummary.net_profit)}
-            </div>
-            <div className="text-[10px] text-slate-400 mt-0.5">Setelah dikurangi beban operasional</div>
           </div>
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
-        <button
-          onClick={() => {
-            setActiveFinanceTab('all');
-            setPage(1);
-          }}
-          className={`flex items-center space-x-1.5 px-4 py-2 text-xs font-bold rounded-xl transition ${
-            activeFinanceTab === 'all'
-              ? 'bg-slate-900 text-[#dfc185] shadow'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Layers className="w-3.5 h-3.5" />
-          <span>Semua Pemasukan (All)</span>
-        </button>
-
-        <button
-          onClick={() => {
-            setActiveFinanceTab('memberships');
-            setPage(1);
-          }}
-          className={`flex items-center space-x-1.5 px-4 py-2 text-xs font-bold rounded-xl transition ${
-            activeFinanceTab === 'memberships'
-              ? 'bg-slate-900 text-[#dfc185] shadow'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Receipt className="w-3.5 h-3.5" />
-          <span>Member Gym</span>
-        </button>
-
-        <button
-          onClick={() => {
-            setActiveFinanceTab('pos');
-            setPage(1);
-          }}
-          className={`flex items-center space-x-1.5 px-4 py-2 text-xs font-bold rounded-xl transition ${
-            activeFinanceTab === 'pos'
-              ? 'bg-slate-900 text-[#dfc185] shadow'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <ShoppingBag className="w-3.5 h-3.5" />
-          <span>POS Kasir / Minuman</span>
-        </button>
-
-        <button
-          onClick={() => {
-            setActiveFinanceTab('pt');
-            setPage(1);
-          }}
-          className={`flex items-center space-x-1.5 px-4 py-2 text-xs font-bold rounded-xl transition ${
-            activeFinanceTab === 'pt'
-              ? 'bg-slate-900 text-[#dfc185] shadow'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Dumbbell className="w-3.5 h-3.5" />
-          <span>Paket Trainer (PT)</span>
-        </button>
-
-        <button
-          onClick={() => {
-            setActiveFinanceTab('expenses');
-            setPage(1);
-          }}
-          className={`flex items-center space-x-1.5 px-4 py-2 text-xs font-bold rounded-xl transition ${
-            activeFinanceTab === 'expenses'
-              ? 'bg-slate-900 text-[#dfc185] shadow'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <ArrowUpRight className="w-3.5 h-3.5" />
-          <span>Pengeluaran Operasional ({financeSummary?.expenses?.length || 0})</span>
-        </button>
-      </div>
-
-      {activeFinanceTab !== 'expenses' && (
-        <>
-          {/* Summary Cards (Dynamic by Period Filter!) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-[#c5a059]/50 shadow-sm bg-gradient-to-br from-white via-white to-[#c5a059]/15">
-              <div className="flex items-center justify-between mb-2">
-                <div className="w-9 h-9 rounded-xl bg-[#c5a059] text-slate-950 flex items-center justify-center shadow-md shadow-[#c5a059]/20 font-bold">
-                  <Wallet className="w-5 h-5" />
-                </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#c5a059]/20 text-[#967434] font-bold border border-[#c5a059]/40">
-                  {filterPeriod === 'bulan_ini' ? 'Bulan Ini' : filterPeriod === 'custom' ? `Periode Terpilih` : 'Semua Periode'}
-                </span>
-              </div>
-              <span className="text-xs font-bold text-[#967434] uppercase tracking-wider block">
-                Total Nominal ({activeFinanceTab === 'all' ? 'Semua Pemasukan' : activeFinanceTab === 'memberships' ? 'Member Gym' : activeFinanceTab === 'pos' ? 'POS Kasir' : 'Trainer PT'})
-              </span>
-              <div className="text-2xl font-black text-[#967434] mt-1 font-mono">
-                {formatRupiah(totalNominal)}
-              </div>
-              <p className="text-[10px] text-slate-400 mt-1">
-                Total omzet dari {totalCount} transaksi yang difilter.
-              </p>
+      {/* Main Financial Overview Cards (Separated Visit vs Belanja vs Member vs PT) */}
+      {financeSummary && (
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          {/* Member Gym */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="flex items-center space-x-2 text-slate-500 mb-1">
+              <Receipt className="w-4 h-4 text-[#c5a059]" />
+              <span className="text-[11px] font-bold uppercase">Member Gym</span>
             </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center mb-2">
-                <Receipt className="w-5 h-5 text-slate-700" />
-              </div>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-                Jumlah Transaksi
-              </span>
-              <div className="text-2xl font-black text-slate-900 mt-1 font-mono">
-                {totalCount} <span className="text-xs font-normal text-slate-400">transaksi</span>
-              </div>
-              <p className="text-[10px] text-slate-400 mt-1">
-                Tercatat pada filter periode ini.
-              </p>
+            <div className="text-base sm:text-lg font-black text-slate-900 font-mono">
+              {formatRupiah(financeSummary.total_member_income)}
             </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center mb-2">
-                <TrendingUp className="w-5 h-5 text-indigo-600" />
-              </div>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-                Rata-rata per Transaksi
-              </span>
-              <div className="text-2xl font-black text-indigo-950 mt-1 font-mono">
-                {totalCount > 0 ? formatRupiah(Math.round(totalNominal / totalCount)) : 'Rp 0'}
-              </div>
-              <p className="text-[10px] text-slate-400 mt-1">
-                Nilai rata-rata dari data terfilter.
-              </p>
-            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Pendaftaran & Paket</div>
           </div>
 
-          {/* Filter & Search Bar - Shared across All, Gym, POS, PT! */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-              {/* Search Box */}
-              <form onSubmit={handleSearchSubmit} className="flex-1 max-w-md relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                  <Search className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Cari nama, No. Struk/TRX, atau keterangan..."
-                  className="w-full pl-9 pr-20 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#c5a059] focus:bg-white transition"
-                />
-                <button
-                  type="submit"
-                  className="absolute right-1.5 top-1.5 px-3 py-1 bg-[#c5a059] hover:bg-[#b89047] text-slate-950 font-bold text-[11px] rounded-lg transition"
-                >
-                  Cari
-                </button>
-              </form>
+          {/* Tiket Visit */}
+          <div className="bg-white p-4 rounded-2xl border border-sky-100 shadow-sm">
+            <div className="flex items-center space-x-2 text-sky-700 mb-1">
+              <Ticket className="w-4 h-4 text-sky-600" />
+              <span className="text-[11px] font-bold uppercase">Tiket Visit Harian</span>
+            </div>
+            <div className="text-base sm:text-lg font-black text-sky-900 font-mono">
+              {formatRupiah(financeSummary.total_visit_income || 0)}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Visit Gym & Kolam Renang</div>
+          </div>
 
-              {/* Period Filter Buttons */}
-              <div className="flex items-center flex-wrap gap-2 text-xs">
-                <span className="text-slate-400 text-xs font-semibold mr-1 flex items-center space-x-1">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>Periode:</span>
+          {/* Belanja / Kafe */}
+          <div className="bg-white p-4 rounded-2xl border border-amber-100 shadow-sm">
+            <div className="flex items-center space-x-2 text-amber-700 mb-1">
+              <Coffee className="w-4 h-4 text-amber-600" />
+              <span className="text-[11px] font-bold uppercase">Belanja / Kafe</span>
+            </div>
+            <div className="text-base sm:text-lg font-black text-amber-900 font-mono">
+              {formatRupiah(financeSummary.total_belanja_income || 0)}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Minuman, F&B, Handuk</div>
+          </div>
+
+          {/* Trainer PT */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="flex items-center space-x-2 text-indigo-700 mb-1">
+              <Dumbbell className="w-4 h-4 text-indigo-600" />
+              <span className="text-[11px] font-bold uppercase">Paket Trainer (PT)</span>
+            </div>
+            <div className="text-base sm:text-lg font-black text-indigo-950 font-mono">
+              {formatRupiah(financeSummary.total_pt_income)}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Personal Coaching</div>
+          </div>
+
+          {/* Total Bersih */}
+          <div className="col-span-2 lg:col-span-1 bg-slate-900 p-4 rounded-2xl border border-slate-800 text-white shadow-sm">
+            <span className="text-[11px] font-bold text-[#dfc185] uppercase block mb-1">
+              Total Keuntungan Bersih
+            </span>
+            <div className="text-lg font-black text-[#dfc185] font-mono">
+              {formatRupiah(financeSummary.net_profit)}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Setelah beban operasional</div>
+          </div>
+        </div>
+      )}
+
+      {/* View Mode Switcher (Tab Mode: Rekap Pendapatan Per Hari vs Transaksi Rinci) */}
+      <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex items-center space-x-1.5 w-full sm:w-auto">
+          <button
+            onClick={() => setViewMode('recap_harian')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center space-x-2 px-4 py-2 rounded-xl text-xs font-black transition ${
+              viewMode === 'recap_harian'
+                ? 'bg-slate-900 text-[#dfc185] shadow'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4 text-[#c5a059]" />
+            <span>Rekap Pendapatan Per Hari (Tabel Harian)</span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('transaksi_rinci')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center space-x-2 px-4 py-2 rounded-xl text-xs font-black transition ${
+              viewMode === 'transaksi_rinci'
+                ? 'bg-slate-900 text-[#dfc185] shadow'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Receipt className="w-4 h-4 text-[#c5a059]" />
+            <span>Daftar Transaksi Rinci</span>
+          </button>
+        </div>
+
+        {/* Quick Filter Period Pills */}
+        <div className="flex flex-wrap items-center gap-1.5 text-xs w-full sm:w-auto justify-start sm:justify-end">
+          <span className="text-slate-400 font-bold text-[11px] mr-1 hidden md:inline">Periode:</span>
+          {[
+            { id: 'hari_ini', label: 'Hari Ini' },
+            { id: 'kemarin', label: 'Kemarin' },
+            { id: 'bulan_ini', label: `Bulan Ini (${months[currentMonth - 1]?.label})` },
+            { id: 'custom_bulan', label: 'Pilih Bulan' },
+            { id: 'semua', label: 'Semua' }
+          ].map((pill) => (
+            <button
+              key={pill.id}
+              onClick={() => handlePeriodChange(pill.id)}
+              className={`px-3 py-1.5 rounded-xl font-bold transition text-xs ${
+                filterPeriod === pill.id
+                  ? 'bg-[#c5a059] text-slate-950 shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {pill.label}
+            </button>
+          ))}
+
+          {/* Date Picker for Tanggal Spesifik */}
+          <div className="flex items-center space-x-1 pl-1">
+            <input
+              type="date"
+              value={filterTanggal}
+              onChange={(e) => {
+                setFilterTanggal(e.target.value);
+                setFilterPeriod('tanggal_spesifik');
+                setPage(1);
+              }}
+              className="px-2 py-1 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:border-[#c5a059]"
+              title="Pilih tanggal spesifik yang ingin dicek"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Custom Month / Year Selector if 'custom_bulan' */}
+      {filterPeriod === 'custom_bulan' && (
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-3 text-xs animate-fade-in">
+          <span className="text-slate-600 font-bold">Pilih Periode Bulan & Tahun:</span>
+          <select
+            value={selectedMonth}
+            onChange={(e) => {
+              setSelectedMonth(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-[#c5a059]"
+          >
+            {months.map((m) => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+
+          <select
+            value={selectedYear}
+            onChange={(e) => {
+              setSelectedYear(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-[#c5a059]"
+          >
+            {years.map((y) => (
+              <option key={y} value={String(y)}>{y}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODE 1: REKAP PENDAPATAN PER HARI (TABLE VIEW GROUPED BY DAY) */}
+      {/* ============================================================== */}
+      {viewMode === 'recap_harian' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-black text-slate-900 tracking-tight uppercase flex items-center space-x-2">
+                <span>Rekapitulasi Arus Kas & Pendapatan Harian</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#c5a059]/20 text-[#967434]">
+                  {dailyRecapList.length} Hari Tercatat
                 </span>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilterPeriod('bulan_ini');
-                    setPage(1);
-                  }}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition text-xs ${
-                    filterPeriod === 'bulan_ini'
-                      ? 'bg-[#c5a059] text-slate-950 shadow-sm'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  Bulan Ini ({months[currentMonth - 1]?.label})
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilterPeriod('semua');
-                    setPage(1);
-                  }}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition text-xs ${
-                    filterPeriod === 'semua'
-                      ? 'bg-[#c5a059] text-slate-950 shadow-sm'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  Semua Riwayat
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilterPeriod('custom');
-                    setPage(1);
-                  }}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition text-xs ${
-                    filterPeriod === 'custom'
-                      ? 'bg-[#c5a059] text-slate-950 shadow-sm'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  Pilih Bulan & Tahun
-                </button>
-              </div>
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Rincian omzet harian per kategori: Member Gym, Tiket Visit (Gym & Kolam), Belanja Kasir, Trainer PT, dan Pengeluaran
+              </p>
             </div>
 
-            {/* Custom Month/Year Dropdown */}
-            {filterPeriod === 'custom' && (
-              <div className="pt-2 border-t border-slate-100 flex items-center space-x-2 animate-in fade-in text-xs">
-                <span className="text-slate-500 font-medium">Bulan:</span>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => {
-                    setSelectedMonth(e.target.value);
-                    setPage(1);
-                  }}
-                  className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#c5a059]"
-                >
-                  {months.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
-
-                <span className="text-slate-500 font-medium">Tahun:</span>
-                <select
-                  value={selectedYear}
-                  onChange={(e) => {
-                    setSelectedYear(e.target.value);
-                    setPage(1);
-                  }}
-                  className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#c5a059]"
-                >
-                  {years.map((y) => (
-                    <option key={y} value={String(y)}>{y}</option>
-                  ))}
-                </select>
+            {dailyRecapSummary && (
+              <div className="flex items-center space-x-3 text-right">
+                <div className="text-xs">
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Total Omzet Periode Ini:</span>
+                  <span className="font-mono font-black text-emerald-700 text-sm sm:text-base">
+                    {formatRupiah(dailyRecapSummary.total_omzet)}
+                  </span>
+                </div>
+                <div className="text-xs border-l border-slate-200 pl-3">
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Kas Bersih:</span>
+                  <span className="font-mono font-black text-slate-900 text-sm sm:text-base">
+                    {formatRupiah(dailyRecapSummary.kas_bersih)}
+                  </span>
+                </div>
               </div>
             )}
           </div>
 
-          {/* Unified Transactions Table (Max 10 per page, pagination standard) */}
+          {loadingDaily ? (
+            <div className="p-14 text-center text-slate-400">
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto text-[#c5a059] mb-2" />
+              <span className="text-xs font-medium">Menghitung rekap harian...</span>
+            </div>
+          ) : dailyRecapList.length === 0 ? (
+            <div className="p-14 text-center text-slate-400">
+              <Calendar className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+              <p className="text-sm font-bold text-slate-700">Belum ada data pendapatan pada periode ini</p>
+              <p className="text-xs text-slate-400 mt-1">
+                Silakan pilih periode lain seperti "Bulan Ini" atau "Semua" di bagian atas.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px]">
+                  <tr>
+                    <th className="py-3.5 px-4">Tanggal</th>
+                    <th className="py-3.5 px-4 text-right">Member Gym</th>
+                    <th className="py-3.5 px-4 text-right">Tiket Visit</th>
+                    <th className="py-3.5 px-4 text-right">Belanja / Kafe</th>
+                    <th className="py-3.5 px-4 text-right">Trainer (PT)</th>
+                    <th className="py-3.5 px-4 text-right bg-emerald-50/50 text-emerald-900">Total Omzet</th>
+                    <th className="py-3.5 px-4 text-right text-rose-700">Pengeluaran</th>
+                    <th className="py-3.5 px-4 text-right bg-amber-50/60 text-amber-900 font-black">Kas Bersih</th>
+                    <th className="py-3.5 px-3 text-center">Trx</th>
+                    <th className="py-3.5 px-3.5 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {dailyRecapList.map((day) => {
+                    const isToday = day.tanggal === getJakartaDate(0);
+
+                    return (
+                      <tr 
+                        key={day.tanggal} 
+                        className={`hover:bg-slate-50 transition ${isToday ? 'bg-amber-50/30' : ''}`}
+                      >
+                        {/* Tanggal */}
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-bold text-slate-900 block font-mono text-xs">
+                              {day.tanggal}
+                            </span>
+                            {isToday && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-[#c5a059] text-slate-950">
+                                Hari Ini
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-slate-500 block mt-0.5">
+                            {formatTanggalLengkap(day.tanggal)}
+                          </span>
+                        </td>
+
+                        {/* Member Gym */}
+                        <td className="py-3.5 px-4 text-right font-mono font-medium text-slate-700">
+                          {day.omzet_member > 0 ? formatRupiah(day.omzet_member) : '-'}
+                        </td>
+
+                        {/* Tiket Visit */}
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-sky-700">
+                          {day.omzet_visit > 0 ? formatRupiah(day.omzet_visit) : '-'}
+                        </td>
+
+                        {/* Belanja Kasir / Kafe */}
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-amber-700">
+                          {day.omzet_belanja > 0 ? formatRupiah(day.omzet_belanja) : '-'}
+                        </td>
+
+                        {/* Trainer PT */}
+                        <td className="py-3.5 px-4 text-right font-mono font-medium text-indigo-700">
+                          {day.omzet_pt > 0 ? formatRupiah(day.omzet_pt) : '-'}
+                        </td>
+
+                        {/* Total Omzet */}
+                        <td className="py-3.5 px-4 text-right font-mono font-black text-emerald-700 text-sm bg-emerald-50/40">
+                          {formatRupiah(day.total_omzet)}
+                        </td>
+
+                        {/* Pengeluaran */}
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-rose-600">
+                          {day.pengeluaran > 0 ? `- ${formatRupiah(day.pengeluaran)}` : '-'}
+                        </td>
+
+                        {/* Kas Bersih */}
+                        <td className="py-3.5 px-4 text-right font-mono font-black text-slate-950 text-sm bg-amber-50/50">
+                          {formatRupiah(day.kas_bersih)}
+                        </td>
+
+                        {/* Jumlah Trx */}
+                        <td className="py-3.5 px-3 text-center font-mono text-slate-500 font-bold">
+                          {day.total_transaksi}
+                        </td>
+
+                        {/* Aksi */}
+                        <td className="py-3.5 px-3.5 text-center">
+                          <button
+                            onClick={() => handleDrilldownDay(day.tanggal)}
+                            className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-[#c5a059] hover:text-slate-950 rounded-lg transition active:scale-95"
+                            title="Buka daftar transaksi rinci hari ini"
+                          >
+                            <span>Rincian</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+
+                {/* Footer Total Row */}
+                {dailyRecapSummary && (
+                  <tfoot className="bg-slate-900 text-white font-mono font-bold text-xs border-t-2 border-slate-800">
+                    <tr>
+                      <td className="py-3.5 px-4">
+                        TOTAL REKAP ({dailyRecapSummary.total_hari} HARI)
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        {formatRupiah(dailyRecapSummary.total_member)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right text-sky-300">
+                        {formatRupiah(dailyRecapSummary.total_visit)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right text-amber-300">
+                        {formatRupiah(dailyRecapSummary.total_belanja)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right text-indigo-300">
+                        {formatRupiah(dailyRecapSummary.total_pt)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right text-emerald-400 font-black text-sm bg-slate-800">
+                        {formatRupiah(dailyRecapSummary.total_omzet)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right text-rose-400">
+                        - {formatRupiah(dailyRecapSummary.total_pengeluaran)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right text-[#dfc185] font-black text-sm bg-slate-800">
+                        {formatRupiah(dailyRecapSummary.kas_bersih)}
+                      </td>
+                      <td colSpan={2} className="py-3.5 px-4 text-center text-slate-400 font-sans text-[10px]">
+                        Laporan Selesai
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODE 2: DAFTAR TRANSAKSI RINCI (ITEMIZED DETAIL WITH TABS)     */}
+      {/* ============================================================== */}
+      {viewMode === 'transaksi_rinci' && (
+        <div className="space-y-4">
+          {/* Tabs Kategori Pemasukan & Pengeluaran */}
+          <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
+            {[
+              { id: 'all', label: 'Semua Pemasukan (All)', icon: Layers },
+              { id: 'memberships', label: 'Member Gym', icon: Receipt },
+              { id: 'visit', label: 'Tiket Visit (Gym & Kolam)', icon: Ticket },
+              { id: 'pos_belanja', label: 'Belanja Kasir / Kafe', icon: ShoppingBag },
+              { id: 'pt', label: 'Paket Trainer (PT)', icon: Dumbbell },
+              { id: 'expenses', label: `Pengeluaran Operasional (${financeSummary?.expenses?.length || 0})`, icon: ArrowUpRight }
+            ].map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveFinanceTab(tab.id);
+                    setPage(1);
+                  }}
+                  className={`flex items-center space-x-1.5 px-3.5 py-2 text-xs font-bold rounded-xl transition ${
+                    activeFinanceTab === tab.id
+                      ? 'bg-slate-900 text-[#dfc185] shadow'
+                      : 'text-slate-600 hover:bg-slate-100 bg-white border border-slate-200/80'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Filter Bar & Active Scope Indicator */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+            {/* Search Box */}
+            <form onSubmit={handleSearchSubmit} className="flex-1 max-w-md relative">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Cari nama, No. Struk/TRX, atau keterangan..."
+                className="w-full pl-9 pr-20 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#c5a059] focus:bg-white transition"
+              />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <button
+                type="submit"
+                className="absolute right-1.5 top-1.5 px-3 py-1 bg-[#c5a059] hover:bg-[#b89047] text-slate-950 font-bold text-[11px] rounded-lg transition"
+              >
+                Cari
+              </button>
+            </form>
+
+            <div className="flex items-center space-x-3 text-xs text-slate-600">
+              <span className="font-medium">
+                Total Nilai: <strong className="font-mono font-black text-slate-900 text-sm">{formatRupiah(totalNominal)}</strong>
+              </span>
+              <span className="text-slate-300">•</span>
+              <span>
+                Jumlah: <strong className="font-mono font-bold text-slate-900">{totalCount}</strong> trx
+              </span>
+            </div>
+          </div>
+
+          {/* Table List of Transactions */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             {loading ? (
               <div className="p-12 text-center text-slate-400">
                 <RefreshCw className="w-5 h-5 animate-spin mx-auto text-[#c5a059] mb-2" />
-                <span className="text-xs">Memuat data transaksi...</span>
+                <span className="text-xs">Memuat daftar transaksi...</span>
               </div>
             ) : dataList.length === 0 ? (
               <div className="p-12 text-center text-slate-400">
                 <Receipt className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-                <p className="text-sm font-semibold text-slate-600">Tidak ada riwayat transaksi yang cocok</p>
-                <p className="text-xs text-slate-400 mt-1">Coba sesuaikan pencarian atau pilihan bulan/periode.</p>
+                <p className="text-sm font-semibold text-slate-600">Tidak ada transaksi yang cocok</p>
+                <p className="text-xs text-slate-400 mt-1">Coba sesuaikan kata kunci atau ubah filter periode.</p>
               </div>
+            ) : activeFinanceTab === 'expenses' ? (
+              /* EXPENSES TABLE */
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase text-[10px]">
+                      <tr>
+                        <th className="p-3.5">Tanggal</th>
+                        <th className="p-3.5">Kategori</th>
+                        <th className="p-3.5">Deskripsi / Keperluan</th>
+                        <th className="p-3.5">Metode</th>
+                        <th className="p-3.5">PIC</th>
+                        <th className="p-3.5 text-right">Nominal</th>
+                        <th className="p-3.5 text-right">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {dataList.map((e) => (
+                        <tr key={e.id_pengeluaran} className="hover:bg-slate-50/60 transition">
+                          <td className="p-3.5 font-mono text-slate-700 whitespace-nowrap">{e.tanggal}</td>
+                          <td className="p-3.5">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                              {e.kategori}
+                            </span>
+                          </td>
+                          <td className="p-3.5 font-bold text-slate-900">{e.deskripsi}</td>
+                          <td className="p-3.5 text-slate-600">{e.metode_bayar}</td>
+                          <td className="p-3.5 text-slate-500">{e.pic}</td>
+                          <td className="p-3.5 font-mono font-black text-rose-600 text-right whitespace-nowrap">
+                            - {formatRupiah(e.nominal)}
+                          </td>
+                          <td className="p-3.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end space-x-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditExpense(e)}
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-amber-600 hover:bg-amber-50 active:scale-95 transition"
+                                title="Edit Catatan Pengeluaran"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteExpense(e.id_pengeluaran, e.deskripsi)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 active:scale-95 transition"
+                                title="Hapus Catatan Pengeluaran"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="px-6 py-3 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+                  <div>
+                    Menampilkan halaman <strong className="text-slate-800 font-bold">{page}</strong> dari <strong className="text-slate-800 font-bold">{totalPages}</strong> ({totalCount} total pengeluaran)
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page <= 1}
+                      className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="font-mono font-semibold px-2">{page} / {totalPages}</span>
+                    <button
+                      type="button"
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page >= totalPages}
+                      className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </>
             ) : (
+              /* UNIFIED REVENUE TRANSACTIONS TABLE */
               <>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
@@ -583,21 +974,27 @@ export default function TransactionsView() {
                     <tbody className="divide-y divide-slate-100">
                       {dataList.map((item) => {
                         const isGym = item.kategori === 'Member Gym';
-                        const isPos = item.kategori === 'POS Kasir';
+                        const isVisit = item.kategori === 'Tiket Visit';
+                        const isBelanja = item.kategori === 'Belanja / Kafe';
+                        const isBoth = item.kategori === 'Tiket Visit & Belanja';
                         const isPt = item.kategori === 'Trainer (PT)';
 
                         return (
                           <tr key={item.unique_id} className="hover:bg-slate-50/80 transition">
-                            <td className="py-3 px-4 font-mono font-bold text-slate-700">
+                            <td className="py-3 px-4 font-mono font-bold text-slate-700 whitespace-nowrap">
                               {item.no_referensi}
                             </td>
 
-                            <td className="py-3 px-4">
+                            <td className="py-3 px-4 whitespace-nowrap">
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                 isGym 
                                   ? 'bg-[#c5a059]/20 text-[#967434] border border-[#c5a059]/40' 
-                                  : isPos
+                                  : isVisit
+                                  ? 'bg-sky-100 text-sky-800 border border-sky-200'
+                                  : isBelanja
                                   ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                  : isBoth
+                                  ? 'bg-teal-100 text-teal-800 border border-teal-200'
                                   : 'bg-indigo-100 text-indigo-800 border border-indigo-200'
                               }`}>
                                 {item.kategori}
@@ -605,7 +1002,7 @@ export default function TransactionsView() {
                             </td>
 
                             <td className="py-3 px-4">
-                              <span className="font-bold text-slate-900 block">{item.pihak_terkait}</span>
+                              <span className="font-bold text-slate-900 block leading-tight">{item.pihak_terkait}</span>
                               <span className="text-[10px] font-mono text-slate-400">{item.kode_id}</span>
                             </td>
 
@@ -613,21 +1010,21 @@ export default function TransactionsView() {
                               {item.deskripsi}
                             </td>
 
-                            <td className="py-3 px-4 font-mono font-black text-emerald-600 text-sm">
+                            <td className="py-3 px-4 font-mono font-black text-emerald-600 text-sm whitespace-nowrap">
                               {formatRupiah(item.nominal)}
                             </td>
 
-                            <td className="py-3 px-4 text-slate-700 font-medium">
+                            <td className="py-3 px-4 text-slate-700 font-medium whitespace-nowrap">
                               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                                 {item.metode_bayar}
                               </span>
                             </td>
 
-                            <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">
+                            <td className="py-3 px-4 text-slate-500 font-mono text-[11px] whitespace-nowrap">
                               {item.waktu}
                             </td>
 
-                            <td className="py-3 px-4 text-center">
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
                               <div className="flex items-center justify-center space-x-1.5">
                                 <button
                                   onClick={() => setSelectedItem(item)}
@@ -636,11 +1033,11 @@ export default function TransactionsView() {
                                 >
                                   <Eye className="w-4 h-4" />
                                 </button>
-                                {item.kategori === 'POS Kasir' && (
+                                {(item.kategori.includes('POS') || item.kategori.includes('Visit') || item.kategori.includes('Belanja')) && (
                                   <button
                                     onClick={() => handleDeletePos(item.no_referensi || item.unique_id.replace('POS-', ''), item.no_referensi)}
                                     className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                    title="Batalkan & Hapus Transaksi POS (Kembalikan Stok Barang)"
+                                    title="Batalkan & Hapus Transaksi Kasir (Kembalikan Stok Barang)"
                                   >
                                     <Trash2 className="w-4 h-4" />
                                   </button>
@@ -654,33 +1051,25 @@ export default function TransactionsView() {
                   </table>
                 </div>
 
-                {/* Pagination Controls (10 baris per halaman untuk semua modul) */}
                 <div className="px-6 py-3 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
                   <div>
                     Menampilkan halaman <strong className="text-slate-800 font-bold">{page}</strong> dari <strong className="text-slate-800 font-bold">{totalPages}</strong> ({totalCount} total transaksi)
                   </div>
-
                   <div className="flex items-center space-x-2">
                     <button
                       type="button"
                       onClick={() => setPage(p => Math.max(1, p - 1))}
                       disabled={page <= 1}
                       className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition"
-                      title="Halaman Sebelumnya"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-
-                    <span className="font-mono font-semibold px-2">
-                      {page} / {totalPages}
-                    </span>
-
+                    <span className="font-mono font-semibold px-2">{page} / {totalPages}</span>
                     <button
                       type="button"
                       onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                       disabled={page >= totalPages}
                       className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition"
-                      title="Halaman Berikutnya"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
@@ -689,7 +1078,7 @@ export default function TransactionsView() {
               </>
             )}
           </div>
-        </>
+        </div>
       )}
 
       {/* Modal Detail Bukti Transaksi Sah */}
@@ -765,288 +1154,6 @@ export default function TransactionsView() {
         </div>
       )}
 
-      {/* EXPENSES TAB VIEW */}
-      {activeFinanceTab === 'expenses' && (
-        <>
-          {/* Summary Cards for Expenses */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-rose-200 shadow-sm bg-gradient-to-br from-white via-white to-rose-50">
-              <div className="flex items-center justify-between mb-2">
-                <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-md shadow-rose-600/20 font-bold">
-                  <ArrowUpRight className="w-5 h-5" />
-                </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold border border-rose-200">
-                  {filterPeriod === 'bulan_ini' ? 'Bulan Ini' : filterPeriod === 'custom' ? `Periode Terpilih` : 'Semua Periode'}
-                </span>
-              </div>
-              <span className="text-xs font-bold text-rose-700 uppercase tracking-wider block">
-                Total Pengeluaran Operasional
-              </span>
-              <div className="text-2xl font-black text-rose-600 mt-1 font-mono">
-                {formatRupiah(totalNominal)}
-              </div>
-              <p className="text-[10px] text-slate-400 mt-1">
-                Total beban operasional dari {totalCount} transaksi yang difilter.
-              </p>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center mb-2">
-                <Receipt className="w-5 h-5 text-slate-700" />
-              </div>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-                Jumlah Catatan Pengeluaran
-              </span>
-              <div className="text-2xl font-black text-slate-900 mt-1 font-mono">
-                {totalCount} <span className="text-xs font-normal text-slate-400">transaksi beban</span>
-              </div>
-              <p className="text-[10px] text-slate-400 mt-1">
-                Tercatat pada periode filter aktif.
-              </p>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center mb-2">
-                <TrendingUp className="w-5 h-5 text-amber-600" />
-              </div>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-                Rata-rata per Beban
-              </span>
-              <div className="text-2xl font-black text-slate-900 mt-1 font-mono">
-                {totalCount > 0 ? formatRupiah(Math.round(totalNominal / totalCount)) : 'Rp 0'}
-              </div>
-              <p className="text-[10px] text-slate-400 mt-1">
-                Rata-rata per transaksi pengeluaran.
-              </p>
-            </div>
-          </div>
-
-          {/* Filter & Search Bar for Expenses */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-              {/* Search Box */}
-              <form onSubmit={handleSearchSubmit} className="flex-1 max-w-md relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                  <Search className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Cari deskripsi beban, kategori, metode, atau PIC..."
-                  className="w-full pl-9 pr-20 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#c5a059] focus:bg-white transition"
-                />
-                <button
-                  type="submit"
-                  className="absolute right-1.5 top-1.5 px-3 py-1 bg-[#c5a059] hover:bg-[#b89047] text-slate-950 font-bold text-[11px] rounded-lg transition"
-                >
-                  Cari
-                </button>
-              </form>
-
-              {/* Period Filter Buttons */}
-              <div className="flex items-center flex-wrap gap-2 text-xs">
-                <span className="text-slate-400 text-xs font-semibold mr-1 flex items-center space-x-1">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>Periode:</span>
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilterPeriod('bulan_ini');
-                    setPage(1);
-                  }}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition text-xs ${
-                    filterPeriod === 'bulan_ini'
-                      ? 'bg-[#c5a059] text-slate-950 shadow-sm'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  Bulan Ini ({months[currentMonth - 1]?.label})
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilterPeriod('semua');
-                    setPage(1);
-                  }}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition text-xs ${
-                    filterPeriod === 'semua'
-                      ? 'bg-[#c5a059] text-slate-950 shadow-sm'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  Semua Riwayat
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilterPeriod('custom');
-                    setPage(1);
-                  }}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition text-xs ${
-                    filterPeriod === 'custom'
-                      ? 'bg-[#c5a059] text-slate-950 shadow-sm'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  Pilih Bulan & Tahun
-                </button>
-              </div>
-            </div>
-
-            {/* Custom Month/Year Dropdown */}
-            {filterPeriod === 'custom' && (
-              <div className="pt-2 border-t border-slate-100 flex items-center space-x-2 animate-in fade-in text-xs">
-                <span className="text-slate-500 font-medium">Bulan:</span>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => {
-                    setSelectedMonth(e.target.value);
-                    setPage(1);
-                  }}
-                  className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#c5a059]"
-                >
-                  {months.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
-
-                <span className="text-slate-500 font-medium">Tahun:</span>
-                <select
-                  value={selectedYear}
-                  onChange={(e) => {
-                    setSelectedYear(e.target.value);
-                    setPage(1);
-                  }}
-                  className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#c5a059]"
-                >
-                  {years.map((y) => (
-                    <option key={y} value={String(y)}>{y}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-
-          {/* Expenses Table with Pagination */}
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="font-black text-slate-900 text-sm uppercase">Daftar Beban & Pengeluaran Operasional</h3>
-              <button
-                onClick={() => setShowExpenseModal(true)}
-                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition shadow-sm"
-              >
-                + Catat Pengeluaran Baru
-              </button>
-            </div>
-
-            {loading ? (
-              <div className="p-12 text-center text-slate-400">
-                <RefreshCw className="w-5 h-5 animate-spin mx-auto text-[#c5a059] mb-2" />
-                <span className="text-xs">Memuat data pengeluaran...</span>
-              </div>
-            ) : dataList.length === 0 ? (
-              <div className="p-12 text-center text-slate-400">
-                <Receipt className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-                <p className="text-sm font-semibold text-slate-600">Tidak ada pengeluaran yang cocok</p>
-                <p className="text-xs text-slate-400 mt-1">Coba sesuaikan pencarian atau pilihan bulan/periode.</p>
-              </div>
-            ) : (
-              <>
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase text-[10px]">
-                    <tr>
-                      <th className="p-3.5">Tanggal</th>
-                      <th className="p-3.5">Kategori</th>
-                      <th className="p-3.5">Deskripsi / Keperluan</th>
-                      <th className="p-3.5">Metode</th>
-                      <th className="p-3.5">PIC</th>
-                      <th className="p-3.5 text-right">Nominal</th>
-                      <th className="p-3.5 text-right">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {dataList.map((e) => (
-                      <tr key={e.id_pengeluaran} className="hover:bg-slate-50/60 transition">
-                        <td className="p-3.5 font-mono text-slate-700">{e.tanggal}</td>
-                        <td className="p-3.5">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                            {e.kategori}
-                          </span>
-                        </td>
-                        <td className="p-3.5 font-bold text-slate-900">{e.deskripsi}</td>
-                        <td className="p-3.5 text-slate-600">{e.metode_bayar}</td>
-                        <td className="p-3.5 text-slate-500">{e.pic}</td>
-                        <td className="p-3.5 font-mono font-black text-rose-600 text-right">
-                          - {formatRupiah(e.nominal)}
-                        </td>
-                        <td className="p-3.5 text-right">
-                          <div className="flex items-center justify-end space-x-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditExpense(e)}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-amber-600 hover:bg-amber-50 active:scale-95 transition"
-                              title="Edit Catatan Pengeluaran"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteExpense(e.id_pengeluaran, e.deskripsi)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 active:scale-95 transition"
-                              title="Hapus Catatan Pengeluaran"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                {/* Pagination Controls for Expenses */}
-                <div className="px-6 py-3 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-                  <div>
-                    Menampilkan halaman <strong className="text-slate-800 font-bold">{page}</strong> dari <strong className="text-slate-800 font-bold">{totalPages}</strong> ({totalCount} total pengeluaran)
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <button
-                      type="button"
-                      onClick={() => setPage(p => Math.max(1, p - 1))}
-                      disabled={page <= 1}
-                      className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition"
-                      title="Halaman Sebelumnya"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-
-                    <span className="font-mono font-semibold px-2">
-                      {page} / {totalPages}
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                      disabled={page >= totalPages}
-                      className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition"
-                      title="Halaman Berikutnya"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </>
-      )}
-
       {/* MODAL CATAT PENGELUARAN */}
       {showExpenseModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -1072,6 +1179,7 @@ export default function TransactionsView() {
                   <option value="Kebersihan & Kolam">Kimia Kolam Renang & Sanitasi</option>
                   <option value="Gaji / Komisi">Komisi Trainer & Gaji Staff</option>
                   <option value="Listrik & Air">Listrik, Air & Internet</option>
+                  <option value="Lainnya">Pengeluaran Lainnya</option>
                 </select>
               </div>
 

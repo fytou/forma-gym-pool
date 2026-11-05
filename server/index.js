@@ -970,44 +970,108 @@ app.post('/api/checkin/checkout/:logId', (req, res) => {
   }
 });
 
-// History Check-in Logs List
+// History Check-in Logs List with Pagination, Filters, and Real-Time Stats
 app.get('/api/checkin/logs', (req, res) => {
   try {
-    const { tanggal, fasilitas, status, search, limit = 100 } = req.query;
+    const { 
+      tanggal = '', 
+      tanggal_mulai = '', 
+      tanggal_akhir = '', 
+      fasilitas = 'Semua', 
+      status = 'Semua', 
+      search = '', 
+      page = 1, 
+      limit = 25 
+    } = req.query;
 
-    let query = `
+    let baseFilter = ' WHERE 1=1';
+    const params = [];
+
+    if (tanggal) {
+      baseFilter += ' AND cl.tanggal = ?';
+      params.push(tanggal);
+    } else if (tanggal_mulai && tanggal_akhir) {
+      baseFilter += ' AND cl.tanggal BETWEEN ? AND ?';
+      params.push(tanggal_mulai, tanggal_akhir);
+    } else if (tanggal_mulai) {
+      baseFilter += ' AND cl.tanggal >= ?';
+      params.push(tanggal_mulai);
+    }
+
+    if (fasilitas && fasilitas !== 'Semua') {
+      baseFilter += ' AND cl.fasilitas = ?';
+      params.push(fasilitas);
+    }
+    if (status && status !== 'Semua') {
+      baseFilter += ' AND cl.hasil_validasi = ?';
+      params.push(status);
+    }
+    if (search && search.trim()) {
+      baseFilter += ' AND (m.nama LIKE ? OR m.id_member LIKE ? OR m.no_hp LIKE ?)';
+      const s = `%${search.trim()}%`;
+      params.push(s, s, s);
+    }
+
+    // 1. Total count
+    const countSql = `
+      SELECT COUNT(*) as total
+      FROM checkin_logs cl
+      JOIN members m ON cl.member_id = m.id_member
+      ${baseFilter}
+    `;
+    const totalCount = db.prepare(countSql).get(...params)?.total || 0;
+
+    // 2. Aggregate stats for the current filter
+    const statsSql = `
+      SELECT 
+        COUNT(*) as total,
+        COALESCE(SUM(CASE WHEN cl.fasilitas = 'Gym' AND cl.hasil_validasi = 'ACCESS GRANTED' THEN 1 ELSE 0 END), 0) as gym_count,
+        COALESCE(SUM(CASE WHEN cl.fasilitas = 'Pool' AND cl.hasil_validasi = 'ACCESS GRANTED' THEN 1 ELSE 0 END), 0) as pool_count,
+        COALESCE(SUM(CASE WHEN cl.jam_keluar IS NULL AND cl.hasil_validasi = 'ACCESS GRANTED' THEN 1 ELSE 0 END), 0) as active_count,
+        COALESCE(SUM(CASE WHEN cl.hasil_validasi != 'ACCESS GRANTED' THEN 1 ELSE 0 END), 0) as denied_count
+      FROM checkin_logs cl
+      JOIN members m ON cl.member_id = m.id_member
+      ${baseFilter}
+    `;
+    const stats = db.prepare(statsSql).get(...params) || {
+      total: 0,
+      gym_count: 0,
+      pool_count: 0,
+      active_count: 0,
+      denied_count: 0
+    };
+
+    // 3. Paginated query
+    const numLimit = Math.min(Math.max(Number(limit) || 25, 5), 200);
+    const numOffset = ((Math.max(Number(page) || 1, 1)) - 1) * numLimit;
+
+    const query = `
       SELECT cl.*, m.nama, m.foto, m.no_hp, p.nama_paket
       FROM checkin_logs cl
       JOIN members m ON cl.member_id = m.id_member
       LEFT JOIN memberships ms ON ms.member_id = m.id_member
       LEFT JOIN packages p ON ms.paket_id = p.id_paket
-      WHERE 1=1
+      ${baseFilter}
+      ORDER BY cl.id_log DESC 
+      LIMIT ? OFFSET ?
     `;
-    const params = [];
+    const queryParams = [...params, numLimit, numOffset];
+    const logs = db.prepare(query).all(...queryParams);
 
-    if (tanggal) {
-      query += ' AND cl.tanggal = ?';
-      params.push(tanggal);
-    }
-    if (fasilitas && fasilitas !== 'Semua') {
-      query += ' AND cl.fasilitas = ?';
-      params.push(fasilitas);
-    }
-    if (status && status !== 'Semua') {
-      query += ' AND cl.hasil_validasi = ?';
-      params.push(status);
-    }
-    if (search && search.trim()) {
-      query += ' AND (m.nama LIKE ? OR m.id_member LIKE ? OR m.no_hp LIKE ?)';
-      const s = `%${search.trim()}%`;
-      params.push(s, s, s);
-    }
-
-    query += ' ORDER BY cl.id_log DESC LIMIT ?';
-    params.push(Number(limit));
-
-    const logs = db.prepare(query).all(...params);
-    res.json({ success: true, data: logs });
+    res.json({ 
+      success: true, 
+      data: logs,
+      total_count: totalCount,
+      page: Number(page) || 1,
+      limit: numLimit,
+      stats: {
+        total: stats.total || 0,
+        gym: stats.gym_count || 0,
+        pool: stats.pool_count || 0,
+        active_inside: stats.active_count || 0,
+        denied: stats.denied_count || 0
+      }
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -1103,11 +1167,11 @@ app.get('/api/transactions', (req, res) => {
 });
 
 // ==========================================
-// UNIFIED FINANCE TRANSACTIONS (Semua, Member Gym, POS Kasir, Trainer PT)
+// UNIFIED FINANCE TRANSACTIONS (Semua, Member Gym, Tiket Visit, Belanja Kasir, Trainer PT)
 // ==========================================
 app.get('/api/finance/unified-transactions', (req, res) => {
   try {
-    const { kategori = 'Semua', search = '', bulan = '', tahun = '', page = 1, limit = 10 } = req.query;
+    const { kategori = 'Semua', search = '', tanggal = '', bulan = '', tahun = '', page = 1, limit = 10 } = req.query;
 
     let unionQuery = `
       SELECT 
@@ -1129,7 +1193,26 @@ app.get('/api/finance/unified-transactions', (req, res) => {
 
       SELECT 
         ('POS-' || pt.id_transaksi_pos) as unique_id,
-        'POS Kasir' as kategori,
+        CASE
+          WHEN (
+            SELECT COUNT(*) FROM pos_transaction_items pti
+            LEFT JOIN pos_products pp ON pti.id_produk = pp.id_produk
+            WHERE pti.id_transaksi_pos = pt.id_transaksi_pos 
+              AND (pp.kategori = 'Tiket Visit' OR pti.nama_produk LIKE '%Visit%')
+          ) > 0 AND (
+            SELECT COUNT(*) FROM pos_transaction_items pti
+            LEFT JOIN pos_products pp ON pti.id_produk = pp.id_produk
+            WHERE pti.id_transaksi_pos = pt.id_transaksi_pos 
+              AND (COALESCE(pp.kategori, '') != 'Tiket Visit' AND pti.nama_produk NOT LIKE '%Visit%')
+          ) > 0 THEN 'Tiket Visit & Belanja'
+          WHEN (
+            SELECT COUNT(*) FROM pos_transaction_items pti
+            LEFT JOIN pos_products pp ON pti.id_produk = pp.id_produk
+            WHERE pti.id_transaksi_pos = pt.id_transaksi_pos 
+              AND (pp.kategori = 'Tiket Visit' OR pti.nama_produk LIKE '%Visit%')
+          ) > 0 THEN 'Tiket Visit'
+          ELSE 'Belanja / Kafe'
+        END as kategori,
         pt.nomor_struk as no_referensi,
         pt.nama_pembeli as pihak_terkait,
         COALESCE(pt.member_id, '-') as kode_id,
@@ -1164,9 +1247,17 @@ app.get('/api/finance/unified-transactions', (req, res) => {
     const params = [];
 
     if (kategori && kategori !== 'Semua') {
-      if (kategori === 'Member Gym') outerQuery += ` AND u.kategori = 'Member Gym'`;
-      else if (kategori === 'POS Kasir') outerQuery += ` AND u.kategori = 'POS Kasir'`;
-      else if (kategori === 'Trainer (PT)') outerQuery += ` AND u.kategori = 'Trainer (PT)'`;
+      if (kategori === 'Member Gym') {
+        outerQuery += ` AND u.kategori = 'Member Gym'`;
+      } else if (kategori === 'Tiket Visit') {
+        outerQuery += ` AND (u.kategori = 'Tiket Visit' OR u.kategori = 'Tiket Visit & Belanja')`;
+      } else if (kategori === 'Belanja / Kafe' || kategori === 'Belanja Kasir') {
+        outerQuery += ` AND (u.kategori = 'Belanja / Kafe' OR u.kategori = 'Tiket Visit & Belanja')`;
+      } else if (kategori === 'POS Kasir') {
+        outerQuery += ` AND (u.kategori LIKE '%Tiket Visit%' OR u.kategori LIKE '%Belanja%')`;
+      } else if (kategori === 'Trainer (PT)') {
+        outerQuery += ` AND u.kategori = 'Trainer (PT)'`;
+      }
     }
 
     if (search && search.trim()) {
@@ -1175,7 +1266,10 @@ app.get('/api/finance/unified-transactions', (req, res) => {
       params.push(s, s, s, s, s);
     }
 
-    if (bulan && tahun) {
+    if (tanggal) {
+      outerQuery += ` AND u.waktu LIKE ?`;
+      params.push(`${tanggal}%`);
+    } else if (bulan && tahun) {
       const ym = `${tahun}-${String(bulan).padStart(2, '0')}%`;
       outerQuery += ` AND u.waktu LIKE ?`;
       params.push(ym);
@@ -1204,6 +1298,12 @@ app.get('/api/finance/unified-transactions', (req, res) => {
       total_nominal: stat?.total_nominal || 0,
       page: Number(page) || 1,
       limit: numLimit
+    });
+  } catch (err) {
+    console.error('Unified transactions error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
     });
   } catch (err) {
     console.error('Unified transactions error:', err);
@@ -1853,15 +1953,58 @@ app.post('/api/lockers/maintenance', authenticateToken, (req, res) => {
 // 11. LAPORAN KEUANGAN & ARUS KAS LENGKAP
 // ==========================================
 
-// Get Financial Summary (Membership + POS + PT - Expenses)
+// Get Financial Summary (Membership + Tiket Visit + Belanja Kasir + PT - Expenses)
 app.get('/api/finance/summary', authenticateToken, requireRole(['superadmin']), (req, res) => {
   try {
+    const todayStr = getWibDate();
+
+    // All-time Totals
     const totalMemberIncome = db.prepare('SELECT COALESCE(SUM(jumlah_bayar), 0) as total FROM transactions').get().total;
-    const totalPosIncome = db.prepare('SELECT COALESCE(SUM(total_bayar), 0) as total FROM pos_transactions').get().total;
     const totalPTIncome = db.prepare('SELECT COALESCE(SUM(biaya), 0) as total FROM trainer_members').get().total;
     const totalExpenses = db.prepare('SELECT COALESCE(SUM(nominal), 0) as total FROM expenses').get().total;
 
-    const netProfit = (totalMemberIncome + totalPosIncome + totalPTIncome) - totalExpenses;
+    // Breakdown POS into Tiket Visit vs Belanja
+    const totalVisitIncome = db.prepare(`
+      SELECT COALESCE(SUM(pti.subtotal), 0) as total
+      FROM pos_transaction_items pti
+      JOIN pos_transactions pt ON pti.id_transaksi_pos = pt.id_transaksi_pos
+      LEFT JOIN pos_products pp ON pti.id_produk = pp.id_produk
+      WHERE pp.kategori = 'Tiket Visit' OR pti.nama_produk LIKE '%Visit%'
+    `).get().total;
+
+    const totalBelanjaIncome = db.prepare(`
+      SELECT COALESCE(SUM(pti.subtotal), 0) as total
+      FROM pos_transaction_items pti
+      JOIN pos_transactions pt ON pti.id_transaksi_pos = pt.id_transaksi_pos
+      LEFT JOIN pos_products pp ON pti.id_produk = pp.id_produk
+      WHERE (COALESCE(pp.kategori, '') != 'Tiket Visit' AND pti.nama_produk NOT LIKE '%Visit%')
+    `).get().total;
+
+    const totalPosIncome = totalVisitIncome + totalBelanjaIncome;
+    const totalGross = totalMemberIncome + totalPosIncome + totalPTIncome;
+    const netProfit = totalGross - totalExpenses;
+
+    // Today's Metrics (WIB)
+    const todayMember = db.prepare('SELECT COALESCE(SUM(jumlah_bayar), 0) as total FROM transactions WHERE substr(tanggal_bayar, 1, 10) = ?').get(todayStr).total;
+    const todayVisit = db.prepare(`
+      SELECT COALESCE(SUM(pti.subtotal), 0) as total
+      FROM pos_transaction_items pti
+      JOIN pos_transactions pt ON pti.id_transaksi_pos = pt.id_transaksi_pos
+      LEFT JOIN pos_products pp ON pti.id_produk = pp.id_produk
+      WHERE substr(pt.created_at, 1, 10) = ? AND (pp.kategori = 'Tiket Visit' OR pti.nama_produk LIKE '%Visit%')
+    `).get(todayStr).total;
+    const todayBelanja = db.prepare(`
+      SELECT COALESCE(SUM(pti.subtotal), 0) as total
+      FROM pos_transaction_items pti
+      JOIN pos_transactions pt ON pti.id_transaksi_pos = pt.id_transaksi_pos
+      LEFT JOIN pos_products pp ON pti.id_produk = pp.id_produk
+      WHERE substr(pt.created_at, 1, 10) = ? AND (COALESCE(pp.kategori, '') != 'Tiket Visit' AND pti.nama_produk NOT LIKE '%Visit%')
+    `).get(todayStr).total;
+    const todayPT = db.prepare('SELECT COALESCE(SUM(biaya), 0) as total FROM trainer_members WHERE substr(tanggal_daftar, 1, 10) = ?').get(todayStr).total;
+    const todayExp = db.prepare('SELECT COALESCE(SUM(nominal), 0) as total FROM expenses WHERE substr(tanggal, 1, 10) = ?').get(todayStr).total;
+
+    const todayGross = todayMember + todayVisit + todayBelanja + todayPT;
+    const todayNet = todayGross - todayExp;
 
     const recentExpenses = db.prepare('SELECT * FROM expenses ORDER BY id_pengeluaran DESC LIMIT 20').all();
 
@@ -1870,11 +2013,140 @@ app.get('/api/finance/summary', authenticateToken, requireRole(['superadmin']), 
       data: {
         total_member_income: totalMemberIncome,
         total_pos_income: totalPosIncome,
+        total_visit_income: totalVisitIncome,
+        total_belanja_income: totalBelanjaIncome,
         total_pt_income: totalPTIncome,
         total_expenses: totalExpenses,
-        total_gross_income: totalMemberIncome + totalPosIncome + totalPTIncome,
+        total_gross_income: totalGross,
         net_profit: netProfit,
+        today: {
+          tanggal: todayStr,
+          member_income: todayMember,
+          visit_income: todayVisit,
+          belanja_income: todayBelanja,
+          pt_income: todayPT,
+          gross_income: todayGross,
+          expenses: todayExp,
+          net_profit: todayNet
+        },
         expenses: recentExpenses
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET /api/finance/daily-recap (Rekap Pendapatan Per Hari)
+app.get('/api/finance/daily-recap', authenticateToken, requireRole(['superadmin']), (req, res) => {
+  try {
+    const { bulan, tahun, tanggal } = req.query;
+    let dateFilter = '';
+    const params = [];
+
+    if (tanggal) {
+      dateFilter = 'WHERE tgl = ?';
+      params.push(tanggal);
+    } else if (bulan && tahun) {
+      const ym = `${tahun}-${String(bulan).padStart(2, '0')}%`;
+      dateFilter = 'WHERE tgl LIKE ?';
+      params.push(ym);
+    } else if (tahun) {
+      const y = `${tahun}%`;
+      dateFilter = 'WHERE tgl LIKE ?';
+      params.push(y);
+    }
+
+    const query = `
+      WITH active_dates AS (
+        SELECT DISTINCT substr(waktu, 1, 10) as tgl
+        FROM (
+          SELECT tanggal_bayar as waktu FROM transactions
+          UNION
+          SELECT created_at as waktu FROM pos_transactions
+          UNION
+          SELECT tanggal_daftar as waktu FROM trainer_members
+          UNION
+          SELECT tanggal as waktu FROM expenses
+        )
+        WHERE tgl IS NOT NULL AND tgl != ''
+      )
+      SELECT 
+        ad.tgl as tanggal,
+        COALESCE((
+          SELECT SUM(t.jumlah_bayar) 
+          FROM transactions t 
+          WHERE substr(t.tanggal_bayar, 1, 10) = ad.tgl
+        ), 0) as omzet_member,
+        COALESCE((
+          SELECT SUM(pti.subtotal)
+          FROM pos_transaction_items pti
+          JOIN pos_transactions pt ON pti.id_transaksi_pos = pt.id_transaksi_pos
+          LEFT JOIN pos_products pp ON pti.id_produk = pp.id_produk
+          WHERE substr(pt.created_at, 1, 10) = ad.tgl 
+            AND (pp.kategori = 'Tiket Visit' OR pti.nama_produk LIKE '%Visit%')
+        ), 0) as omzet_visit,
+        COALESCE((
+          SELECT SUM(pti.subtotal)
+          FROM pos_transaction_items pti
+          JOIN pos_transactions pt ON pti.id_transaksi_pos = pt.id_transaksi_pos
+          LEFT JOIN pos_products pp ON pti.id_produk = pp.id_produk
+          WHERE substr(pt.created_at, 1, 10) = ad.tgl 
+            AND (COALESCE(pp.kategori, '') != 'Tiket Visit' AND pti.nama_produk NOT LIKE '%Visit%')
+        ), 0) as omzet_belanja,
+        COALESCE((
+          SELECT SUM(tm.biaya)
+          FROM trainer_members tm
+          WHERE substr(tm.tanggal_daftar, 1, 10) = ad.tgl
+        ), 0) as omzet_pt,
+        COALESCE((
+          SELECT SUM(e.nominal)
+          FROM expenses e
+          WHERE substr(e.tanggal, 1, 10) = ad.tgl
+        ), 0) as pengeluaran,
+        (
+          COALESCE((SELECT COUNT(*) FROM transactions t WHERE substr(t.tanggal_bayar, 1, 10) = ad.tgl), 0) +
+          COALESCE((SELECT COUNT(*) FROM pos_transactions pt WHERE substr(pt.created_at, 1, 10) = ad.tgl), 0) +
+          COALESCE((SELECT COUNT(*) FROM trainer_members tm WHERE substr(tm.tanggal_daftar, 1, 10) = ad.tgl), 0)
+        ) as total_transaksi
+      FROM active_dates ad
+      ${dateFilter}
+      ORDER BY ad.tgl DESC
+    `;
+
+    const rows = db.prepare(query).all(...params);
+    const enriched = rows.map(r => {
+      const omzet_pos = r.omzet_visit + r.omzet_belanja;
+      const total_omzet = r.omzet_member + omzet_pos + r.omzet_pt;
+      const kas_bersih = total_omzet - r.pengeluaran;
+      return {
+        ...r,
+        omzet_pos,
+        total_omzet,
+        kas_bersih
+      };
+    });
+
+    const totalMember = enriched.reduce((acc, c) => acc + c.omzet_member, 0);
+    const totalVisit = enriched.reduce((acc, c) => acc + c.omzet_visit, 0);
+    const totalBelanja = enriched.reduce((acc, c) => acc + c.omzet_belanja, 0);
+    const totalPt = enriched.reduce((acc, c) => acc + c.omzet_pt, 0);
+    const totalPengeluaran = enriched.reduce((acc, c) => acc + c.pengeluaran, 0);
+    const grandOmzet = totalMember + totalVisit + totalBelanja + totalPt;
+    const grandBersih = grandOmzet - totalPengeluaran;
+
+    res.json({
+      success: true,
+      data: enriched,
+      summary: {
+        total_member: totalMember,
+        total_visit: totalVisit,
+        total_belanja: totalBelanja,
+        total_pt: totalPt,
+        total_omzet: grandOmzet,
+        total_pengeluaran: totalPengeluaran,
+        kas_bersih: grandBersih,
+        total_hari: enriched.length
       }
     });
   } catch (err) {
@@ -1885,7 +2157,7 @@ app.get('/api/finance/summary', authenticateToken, requireRole(['superadmin']), 
 // Get Expenses with search, period filters, and pagination
 app.get('/api/finance/expenses', authenticateToken, requireRole(['superadmin']), (req, res) => {
   try {
-    const { search = '', bulan = '', tahun = '', kategori = '', limit = 10, page = 1 } = req.query;
+    const { search = '', tanggal = '', bulan = '', tahun = '', kategori = '', limit = 10, page = 1 } = req.query;
 
     let query = `
       SELECT *
@@ -1905,7 +2177,10 @@ app.get('/api/finance/expenses', authenticateToken, requireRole(['superadmin']),
       params.push(s, s, s, s);
     }
 
-    if (bulan && tahun) {
+    if (tanggal) {
+      query += ` AND tanggal LIKE ?`;
+      params.push(`${tanggal}%`);
+    } else if (bulan && tahun) {
       const ym = `${tahun}-${String(bulan).padStart(2, '0')}%`;
       query += ` AND tanggal LIKE ?`;
       params.push(ym);
@@ -1931,10 +2206,13 @@ app.get('/api/finance/expenses', authenticateToken, requireRole(['superadmin']),
       sumQuery += ` AND (deskripsi LIKE ? OR kategori LIKE ? OR pic LIKE ? OR metode_bayar LIKE ?)`;
       sumParams.push(s, s, s, s);
     }
-    if (bulan && tahun) {
+    if (tanggal) {
+      sumQuery += ` AND tanggal LIKE ?`;
+      sumParams.push(`${tanggal}%`);
+    } else if (bulan && tahun) {
       const ym = `${tahun}-${String(bulan).padStart(2, '0')}%`;
       sumQuery += ` AND tanggal LIKE ?`;
-      sumParams.push(ym);
+      params.push(ym);
     } else if (tahun) {
       const y = `${tahun}%`;
       sumQuery += ` AND tanggal LIKE ?`;

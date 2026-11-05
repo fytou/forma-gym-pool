@@ -1304,12 +1304,6 @@ app.get('/api/finance/unified-transactions', (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
-    });
-  } catch (err) {
-    console.error('Unified transactions error:', err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
 
 // ==========================================
 // 8. POS (POINT OF SALE) KASIR ENDPOINTS
